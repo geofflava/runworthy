@@ -107,9 +107,15 @@ def openrouter_slug(model_id: str) -> str:
 def _provider_prefs(base_url: str) -> dict[str, Any] | None:
     """Pin OpenRouter routing to Anthropic upstream, fallbacks off, so recorded
     cassettes aren't polluted by cross-provider variance (VF-2 §3). Only OpenRouter
-    reads these; other OpenAI-compatible hosts get nothing extra."""
+    reads these; other OpenAI-compatible hosts get nothing extra.
+
+    We deliberately do NOT set ``require_parameters``: Anthropic's OpenRouter entry
+    doesn't advertise ``response_format: json_schema`` (Anthropic uses tool-use
+    natively), so requiring it 404s the request even though OpenRouter translates
+    structured output to Anthropic tool-use fine at runtime. The pin + no-fallback
+    is what gives determinism; our validate-reject-retry loop covers correctness."""
     if "openrouter.ai" in base_url:
-        return {"order": ["Anthropic"], "allow_fallbacks": False, "require_parameters": True}
+        return {"order": ["Anthropic"], "allow_fallbacks": False}
     return None
 
 
@@ -180,7 +186,7 @@ class StructuredModel:
     api_key: str | None = None  # falls back to a transport-specific env key at call time
     transport: str = DEFAULT_TRANSPORT  # "anthropic" | "openai_compat"
     base_url: str = DEFAULT_BASE_URL  # openai_compat only; defaults to OpenRouter
-    max_tokens: int = 1536
+    max_tokens: int = 3072  # a full 29-control map with rationales needs headroom
     temperature: float = 0.0
 
     def complete(self, *, node: str, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
@@ -273,6 +279,10 @@ class StructuredModel:
         prefs = _provider_prefs(base_url)
         if prefs is not None:
             extra_body["provider"] = prefs
+            # OpenRouter defaults extended thinking ON for Claude; our map/translate
+            # are mechanical, so thinking just burns the token budget and returns
+            # empty content on truncation. Turn it off.
+            extra_body["reasoning"] = {"enabled": False}
         resp = client.chat.completions.create(
             model=openrouter_slug(self.model_id),
             max_tokens=self.max_tokens,

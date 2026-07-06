@@ -40,7 +40,6 @@ def test_provider_prefs_only_for_openrouter():
     assert _provider_prefs(OPENROUTER_BASE_URL) == {
         "order": ["Anthropic"],
         "allow_fallbacks": False,
-        "require_parameters": True,
     }
     assert _provider_prefs("https://api.openai.com/v1") is None
 
@@ -110,8 +109,9 @@ def test_openai_compat_builds_request_and_maps_usage(monkeypatch):
     assert req["response_format"]["json_schema"]["strict"] is True
     assert req["response_format"]["json_schema"]["schema"] == SCHEMA
     assert req["extra_body"]["provider"] == {
-        "order": ["Anthropic"], "allow_fallbacks": False, "require_parameters": True,
+        "order": ["Anthropic"], "allow_fallbacks": False,
     }
+    assert req["extra_body"]["reasoning"] == {"enabled": False}  # thinking off for mechanical calls
     assert req["messages"] == [
         {"role": "system", "content": "SYS"},
         {"role": "user", "content": "USR"},
