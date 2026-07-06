@@ -1,0 +1,38 @@
+{
+  "report": "examples/crewai_examples.json",
+  "responses": {
+    "map": {
+      "items": [
+        {"afr_control": "AFR-01", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "Many separate crews, no registry or named owner visible — inventory is exactly what a repo this broad needs."},
+        {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium",
+         "evidence": ["rw-a7fc5e46c5", "rw-38f51ff97e"],
+         "rationale": "Credentials read from the environment flow into outbound calls in several crews — a possible egress path to verify per crew."},
+        {"afr_control": "AFR-10", "status": "gap", "confidence": "high",
+         "evidence": ["rw-2fa50fcca5", "rw-eeeb1ad7fe"],
+         "rationale": "The pinned lockfiles carry many known-vulnerable dependencies (for example aiohttp and idna) with open advisories."},
+        {"afr_control": "AFR-12", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No human-approval step is visible around high-consequence actions across the crews."},
+        {"afr_control": "AFR-20", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "Whether a tested kill-switch exists can't be seen from the code."}
+      ]
+    },
+    "translate": {"items": []}
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-10": "gap",
+      "AFR-08": "unknown",
+      "AFR-01": "unknown",
+      "AFR-12": "unknown"
+    },
+    "max_wrong_status": 1,
+    "forbidden_assertions": [
+      "certified secure",
+      "no vulnerabilities",
+      "fully compliant"
+    ]
+  }
+}

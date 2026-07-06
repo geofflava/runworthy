@@ -146,10 +146,22 @@ class OperationalAnswer(BaseModel):
 
 class PostureItem(BaseModel):
     """An interpreted control assessment (Phase 1). Empty in Phase 0 — no
-    control can be confirmed without the interpretation layer / overlay."""
+    control can be confirmed without the interpretation layer / overlay.
+
+    ``confidence`` is the render tier and the reason unknown never becomes a
+    silent gap (spec §4 anti-hallucination):
+    - ``high``   — **Confirmed**: grounded in a deterministic finding or an
+      operator's answer. Only a ``high`` + ``gap`` on a Boldface control forces
+      NO_GO.
+    - ``medium`` — **Likely gap — verify**: an inferred absence. Rendered as a
+      caution, never counted as a confirmed failure (``status`` stays
+      ``unknown``, so it holds the verdict at PROVISIONAL, not NO_GO).
+    - ``low``    — **Couldn't determine**: no grounding; "here's how to check."
+    """
 
     afr_control: str
     status: PostureStatus
+    confidence: Confidence = Confidence.HIGH
     boldface: bool
     evidence: list[str] = Field(default_factory=list)  # finding_id | answer_id
     plain_explanation: str

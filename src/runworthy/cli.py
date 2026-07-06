@@ -1,4 +1,10 @@
-"""``runworthy`` command-line interface (spec §5): ``scan`` and ``doctor``."""
+"""``runworthy`` command-line interface (spec §5): ``scan`` and ``doctor``.
+
+``scan`` runs the deterministic Phase-0 engine, then — unless ``--no-llm`` — the
+Phase-1 interpretation layer and the operational overlay, and renders a
+human-readable Markdown report (``--format json`` for the machine contract).
+Without a key it degrades honestly to the provisional report rather than failing.
+"""
 
 from __future__ import annotations
 
@@ -6,20 +12,104 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 from . import __version__
 from .engine import scan
 from .tools import check_tools
 
+DEFAULT_TOKEN_BUDGET = 120_000
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _cache_store(commit_sha: str | None):
+    """A response cache keyed by commit SHA (spec §4). Disabled for a dirty local
+    directory (no SHA) — caching content that can change between runs would serve
+    stale grades."""
+    if not commit_sha:
+        return None
+    from .model import FileResponseStore
+
+    root = Path(os.environ.get("RW_CACHE_DIR") or (Path.home() / ".runworthy" / "cache"))
+    return FileResponseStore(root=root)
+
+
+def _interpret(report, args):
+    from .model import ModelUnavailable, StructuredModel, TokenBudget
+    from .model.client import DEFAULT_MODEL
+    from .interpret import interpret
+
+    budget_cap = args.token_budget if args.token_budget and args.token_budget > 0 else None
+    model = StructuredModel(
+        mode="live",
+        store=_cache_store(report.commit_sha),
+        namespace=f"{report.commit_sha or 'local'}::{report.engine_version}",
+        budget=TokenBudget(max_tokens=budget_cap),
+        model_id=args.model or DEFAULT_MODEL,
+    )
+    try:
+        graded = interpret(report, model=model)
+    except ModelUnavailable as exc:
+        if args.byok:
+            print(f"runworthy: {exc}", file=sys.stderr)
+            raise SystemExit(2)
+        print(f"runworthy: {exc}", file=sys.stderr)
+        print(
+            "runworthy: returning the provisional (deterministic) report. Set ANTHROPIC_API_KEY "
+            "for an AFR grade, or pass --no-llm to silence this.",
+            file=sys.stderr,
+        )
+        return report
+
+    if not args.non_interactive and sys.stdin.isatty():
+        from . import overlay
+
+        answers = overlay.ask(graded, now=_now_iso())
+        if answers:
+            graded = overlay.merge(graded, answers)
+    return graded
+
+
+def _resolve_format(args) -> str:
+    if args.format:
+        return args.format
+    if args.output:
+        ext = os.path.splitext(args.output)[1].lower()
+        if ext == ".json":
+            return "json"
+        if ext in (".md", ".markdown"):
+            return "md"
+    return "md"
+
+
+def _render(report, fmt: str, pretty: bool) -> str:
+    if fmt == "json":
+        return json.dumps(report.model_dump(mode="json"), indent=2 if pretty else None)
+    from .render import render_markdown
+
+    return render_markdown(report)
+
 
 def _cmd_scan(args: argparse.Namespace) -> int:
+    from .model import BudgetExceeded
+
     try:
         report = scan(args.target)
+        if not args.no_llm and not report.agent_map.is_empty():
+            report = _interpret(report, args)
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        if isinstance(exc, BudgetExceeded):
+            print(f"runworthy: token budget exceeded: {exc}", file=sys.stderr)
+            return 3
         print(f"runworthy: scan failed: {exc}", file=sys.stderr)
         return 2
 
-    payload = json.dumps(report.model_dump(mode="json"), indent=2 if args.pretty else None)
+    fmt = _resolve_format(args)
+    payload = _render(report, fmt, args.pretty)
     if args.output:
         parent = os.path.dirname(args.output)
         if parent:
@@ -30,18 +120,18 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     else:
         print(payload)
 
-    # A one-line human summary to stderr (keeps stdout clean for piping).
+    _print_summary(report)
+    return 0
+
+
+def _print_summary(report) -> None:
     n = len(report.findings)
-    by_det: dict[str, int] = {}
-    for f in report.findings:
-        by_det[f.detector] = by_det.get(f.detector, 0) + 1
-    detail = ", ".join(f"{k}: {v}" for k, v in sorted(by_det.items())) or "no findings"
+    band = report.band or f"provisional ({report.assessed_controls}/{report.total_controls})"
     fw = ", ".join(report.agent_map.frameworks) or "none detected"
     print(
-        f"runworthy: {report.verdict} - {n} finding(s) [{detail}] | frameworks: {fw}",
+        f"runworthy: {report.verdict} · band: {band} · {n} finding(s) · frameworks: {fw}",
         file=sys.stderr,
     )
-    return 0
 
 
 def _cmd_doctor(_args: argparse.Namespace) -> int:
@@ -68,15 +158,24 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="runworthy",
-        description="Agent operations scanner — deterministic findings (Phase 0).",
+        description="Agent operations scanner — grades a repo against the Agent Flight Rules (AFR).",
     )
     parser.add_argument("--version", action="version", version=f"runworthy {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_scan = sub.add_parser("scan", help="scan a local path or public repo URL")
     p_scan.add_argument("target", help="local directory path or a public git repo URL (or owner/repo)")
-    p_scan.add_argument("-o", "--output", help="write the ReadinessReport JSON to this file")
-    p_scan.add_argument("--pretty", action="store_true", help="pretty-print the JSON")
+    p_scan.add_argument("-o", "--output", help="write the report to this file (format inferred from extension)")
+    p_scan.add_argument("--format", choices=["md", "json"], help="output format (default: md, or json for a .json -o)")
+    p_scan.add_argument("--pretty", action="store_true", help="pretty-print JSON output")
+    p_scan.add_argument("--no-llm", action="store_true", help="deterministic findings only — no model, fully offline")
+    p_scan.add_argument("--non-interactive", action="store_true", help="never prompt (skips the operational overlay)")
+    p_scan.add_argument("--byok", action="store_true", help="require your own ANTHROPIC_API_KEY; error if it's missing")
+    p_scan.add_argument("--model", help="override the model id (default: RW_MODEL or claude-sonnet-5)")
+    p_scan.add_argument(
+        "--token-budget", type=int, default=DEFAULT_TOKEN_BUDGET,
+        help="per-scan token ceiling; a breach fails loud (0 disables)",
+    )
     p_scan.set_defaults(func=_cmd_scan)
 
     p_doctor = sub.add_parser("doctor", help="verify pinned external detector tools")
@@ -85,6 +184,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Report text carries Unicode (✓ ✕ ★ — ). Force UTF-8 so a Windows cp1252
+    # console can't crash the run on `print`.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable stream
+            pass
+
     parser = build_parser()
     args = parser.parse_args(argv)
     return int(args.func(args))

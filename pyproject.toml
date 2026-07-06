@@ -34,6 +34,9 @@ dependencies = ["pydantic>=2.10"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
+# The interpretation layer (Phase 1). Kept optional so the deterministic Phase-0
+# core, `--no-llm`, and `runworthy doctor` install and run with zero LLM deps.
+llm = ["anthropic>=0.40", "langgraph>=0.2"]
 dev = ["pytest>=8", "jsonschema>=4.20", "build>=1.2", "twine>=5.0", "ruff>=0.6"]
 
 [project.scripts]

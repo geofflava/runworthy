@@ -1,0 +1,36 @@
+{
+  "report": "evals/fixtures/clean_agent_repo.json",
+  "responses": {
+    "map": {
+      "items": [
+        {"afr_control": "AFR-01", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No agent registry or named owner is visible in the code."},
+        {"afr_control": "AFR-12", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No human-approval step is visible for high-consequence actions."},
+        {"afr_control": "AFR-16", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No action logging is visible in the code."},
+        {"afr_control": "AFR-20", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "Whether a tested kill-switch exists can't be seen from the code."},
+        {"afr_control": "AFR-25", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No incident runbook is visible in the repo."}
+      ]
+    },
+    "translate": {"items": []}
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-01": "unknown",
+      "AFR-12": "unknown",
+      "AFR-20": "unknown"
+    },
+    "max_wrong_status": 0,
+    "forbidden_assertions": [
+      "certified secure",
+      "vulnerable",
+      "hardcoded",
+      "confirmed gap"
+    ]
+  }
+}

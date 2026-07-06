@@ -1,0 +1,46 @@
+{
+  "report": "examples/anthropics_skills.json",
+  "responses": {
+    "map": {
+      "items": [
+        {"afr_control": "AFR-01", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No agent registry or named owner is visible in the code."},
+        {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium",
+         "evidence": ["rw-c7a3515a16", "rw-3e1ff5b301"],
+         "rationale": "The skill scripts read environment variables and run privileged shell steps — patterns worth checking against untrusted input before you connect them."},
+        {"afr_control": "AFR-09", "status": "unknown", "confidence": "medium",
+         "evidence": ["rw-1f60bf6513"],
+         "rationale": "These are installable skill packages; some run subprocesses. Whether they were reviewed and version-pinned before connecting is an operator step the code can't show."},
+        {"afr_control": "AFR-10", "status": "gap", "confidence": "high",
+         "evidence": ["rw-fcf7384b85", "rw-c7a46ee4c6"],
+         "rationale": "The skill requirements pin known-vulnerable dependencies (for example mcp and pillow) with open advisories."},
+        {"afr_control": "AFR-12", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No human-approval step is visible for high-consequence actions."},
+        {"afr_control": "AFR-20", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "Whether a tested kill-switch exists can't be seen from the code."},
+        {"afr_control": "AFR-25", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No incident runbook is visible in the repo."}
+      ]
+    },
+    "translate": {"items": []}
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-10": "gap",
+      "AFR-09": "unknown",
+      "AFR-08": "unknown",
+      "AFR-01": "unknown",
+      "AFR-20": "unknown"
+    },
+    "max_wrong_status": 1,
+    "forbidden_assertions": [
+      "certified secure",
+      "no vulnerabilities",
+      "safe to install",
+      "do_not_install",
+      "no dangerous code"
+    ]
+  }
+}

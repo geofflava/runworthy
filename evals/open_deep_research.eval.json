@@ -1,0 +1,43 @@
+{
+  "report": "examples/open_deep_research.json",
+  "responses": {
+    "map": {
+      "items": [
+        {"afr_control": "AFR-01", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No agent registry or named owner is visible in the code — this lives outside the repo."},
+        {"afr_control": "AFR-05", "status": "gap", "confidence": "high", "evidence": ["rw-076d01d34a"],
+         "rationale": "A generic API key is hardcoded in .env.example:1 — a shared, long-lived credential rather than a per-agent one."},
+        {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium", "evidence": ["rw-0d180fc578"],
+         "rationale": "A credential read from the environment flows straight into an outbound HTTP request at src/legacy/utils.py:328 — a possible data-egress path worth verifying."},
+        {"afr_control": "AFR-10", "status": "gap", "confidence": "high", "evidence": ["rw-7d390e4d45", "rw-394efae10c"],
+         "rationale": "The pinned dependencies include known-vulnerable versions (for example langchain and pygments) with open advisories."},
+        {"afr_control": "AFR-12", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "No human-approval step is visible around the agent's high-consequence actions."},
+        {"afr_control": "AFR-20", "status": "unknown", "confidence": "low", "evidence": [],
+         "rationale": "Whether a tested kill-switch exists can't be seen from the code."}
+      ]
+    },
+    "translate": {"items": []}
+  },
+  "labels": {
+    "verdict": "NO_GO",
+    "band": "Exposed",
+    "expected_status": {
+      "AFR-05": "gap",
+      "AFR-10": "gap",
+      "AFR-08": "unknown",
+      "AFR-01": "unknown",
+      "AFR-12": "unknown",
+      "AFR-20": "unknown"
+    },
+    "max_wrong_status": 1,
+    "forbidden_assertions": [
+      "certified secure",
+      "no vulnerabilities",
+      "no secrets found",
+      "kill-switch is in place",
+      "secure and ready",
+      "fully compliant"
+    ]
+  }
+}

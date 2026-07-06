@@ -1,0 +1,25 @@
+{
+  "band": null,
+  "verdict": "PROVISIONAL",
+  "score": 0,
+  "assessed_controls": 0,
+  "total_controls": 29,
+  "posture_items": [],
+  "findings": [],
+  "operational_answers": [],
+  "target_ref": "example-org/tidy-agent",
+  "commit_sha": "0000000000000000000000000000000000000000",
+  "generated_at": "2026-07-06T00:00:00Z",
+  "engine_version": "0.1.0",
+  "detector_versions": {"gitleaks": "8.30.1", "osv-scanner": "2.4.0", "skillspector": "2.3.9"},
+  "agent_map": {
+    "frameworks": ["LangGraph"],
+    "entrypoints": ["app/agent.py"],
+    "tools": ["declared-tools"],
+    "prompts": ["app/prompts.py"],
+    "mcp_servers": [],
+    "skills": [],
+    "memory_stores": []
+  },
+  "notes": ["a clean scan: an agent surface with no deterministic findings — code can confirm very little either way."]
+}
