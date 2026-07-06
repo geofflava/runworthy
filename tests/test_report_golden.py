@@ -32,13 +32,19 @@ def _rendered() -> str:
 def test_proof_repo_1_golden_render():
     md = _rendered()
 
-    # build item 3 — everything is present
-    assert "## Verdict: NO-GO" in md and "Exposed" in md
+    # Post-VF-1: the honest grade is PROVISIONAL. The placeholder in .env.example is
+    # not a committed secret, so there is no Confirmed Boldface gap and the pipeline
+    # refuses to invent one — the real AFR-10 vulnerable-deps gap still stands.
+    assert "## Verdict: PROVISIONAL" in md
+    assert "NO-GO" not in md
     assert "commit `408da44" in md and "gitleaks 8.30.1" in md  # provenance
     for gate in ("AFR-01", "AFR-04", "AFR-05", "AFR-09", "AFR-11", "AFR-12", "AFR-16", "AFR-17", "AFR-20", "AFR-25"):
         assert f"| {gate} |" in md
     assert "## Confirmed gaps" in md
-    assert "AFR-05 — Per-agent credentials" in md and "AFR-10 — Scan the agent stack" in md
+    assert "AFR-10 — Scan the agent stack" in md
+    # The false positive must be gone: no AFR-05 credential gap, no placeholder cited.
+    assert "AFR-05 — Per-agent credentials" not in md
+    assert ".env.example" not in md and "hardcoded" not in md
     assert "## Likely gaps — verify" in md
     assert "## Couldn't determine" in md
     assert "https://github.com/langchain-ai/open_deep_research/blob/408da44" in md  # deep link

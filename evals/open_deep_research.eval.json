@@ -5,8 +5,6 @@
       "items": [
         {"afr_control": "AFR-01", "status": "unknown", "confidence": "low", "evidence": [],
          "rationale": "No agent registry or named owner is visible in the code — this lives outside the repo."},
-        {"afr_control": "AFR-05", "status": "gap", "confidence": "high", "evidence": ["rw-076d01d34a"],
-         "rationale": "A generic API key is hardcoded in .env.example:1 — a shared, long-lived credential rather than a per-agent one."},
         {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium", "evidence": ["rw-0d180fc578"],
          "rationale": "A credential read from the environment flows straight into an outbound HTTP request at src/legacy/utils.py:328 — a possible data-egress path worth verifying."},
         {"afr_control": "AFR-10", "status": "gap", "confidence": "high", "evidence": ["rw-7d390e4d45", "rw-394efae10c"],
@@ -23,28 +21,24 @@
          "plain_explanation": "No list of your production agents, or a named owner for each, shows up in the code — that lives in a doc or a spreadsheet.",
          "fix": "Keep one table of every agent you run, each with a single named owner, and add a row before any new agent ships."},
         {"index": 1,
-         "plain_explanation": "A generic API key is written straight into .env.example:1. That's a shared, long-lived credential — the kind you can't revoke for one agent without breaking the rest.",
-         "fix": "Give each agent its own scoped key from a secret manager, and rotate the one in the repo now in case it is real."},
-        {"index": 2,
          "plain_explanation": "At src/legacy/utils.py:328 a value read from the environment flows straight into an outbound web request. If that value is a credential, this is a path for it to leave your systems.",
          "fix": "Confirm what is being sent, and make sure an agent's privileges come from your configuration, not from data it reads."},
-        {"index": 3,
+        {"index": 2,
          "plain_explanation": "Several pinned dependencies have known security advisories open against them — for example langchain and pygments. Your agent inherits every one of those.",
          "fix": "Run a dependency scan on a schedule and upgrade the flagged packages; treat critical advisories as work to close, not noise."},
-        {"index": 4,
+        {"index": 3,
          "plain_explanation": "Nothing in the code shows a person approving high-consequence actions before they run. For an agent that can reach the network and the shell, that is the highest-leverage control to add.",
          "fix": "Route high-consequence actions to a human to approve before they fire — a Slack message or a review queue is enough to start."},
-        {"index": 5,
+        {"index": 4,
          "plain_explanation": "Whether you can stop this agent on demand isn't something the code can show.",
          "fix": "Make sure one command or button disables the agent's credentials, and test it on a schedule so it works when you need it."}
       ]
     }
   },
   "labels": {
-    "verdict": "NO_GO",
-    "band": "Exposed",
+    "verdict": "PROVISIONAL",
+    "band": null,
     "expected_status": {
-      "AFR-05": "gap",
       "AFR-10": "gap",
       "AFR-08": "unknown",
       "AFR-01": "unknown",
@@ -56,9 +50,9 @@
       "certified secure",
       "no vulnerabilities",
       "no secrets found",
-      "kill-switch is in place",
-      "secure and ready",
-      "fully compliant"
+      "fully compliant",
+      ".env.example",
+      "hardcoded"
     ]
   }
 }

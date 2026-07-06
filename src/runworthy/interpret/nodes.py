@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from ..afr import summarize
 from ..afr_catalog import CONTROLS
+from ..classify import is_template_path
 from ..models import (
     AFR_CONTROLS,
     BOLDFACE,
@@ -233,6 +234,32 @@ def _rank(it: MapItem) -> tuple[int, int, int]:
     return (_ORDER[it.status], _CONF_ORDER[it.confidence], len(it.evidence))
 
 
+def _boldface_confirmation_guard(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
+    """Defense in depth for the highest-stakes call. A *Confirmed* gap on a
+    Boldface control forces NO-GO, so it must rest on a high-confidence finding in
+    real source (not a template/example/docs file) — or an operator's answer.
+    Anything weaker is downgraded to "Likely gap — verify" (unknown/medium): still
+    surfaced, but it can no longer flip the verdict. This is what stops a
+    placeholder in ``.env.example`` from grading a repo NO-GO."""
+    out: list[MapItem] = []
+    downgraded = 0
+    for it in items:
+        if it.status is PostureStatus.GAP and it.afr_control in BOLDFACE:
+            strong = any(
+                (f := ctx.finding_by_id.get(e)) is not None
+                and f.confidence is Confidence.HIGH
+                and not is_template_path(f.file)
+                for e in it.evidence
+            )
+            answered = any(e in ctx.answer_by_id for e in it.evidence)
+            if not (strong or answered):
+                out.append(MapItem(it.afr_control, PostureStatus.UNKNOWN, Confidence.MEDIUM, it.evidence, it.rationale))
+                downgraded += 1
+                continue
+        out.append(it)
+    return out, downgraded
+
+
 def run_map(model: StructuredModel, ctx: MapContext) -> tuple[list[MapItem], list[str]]:
     """Call the map node, validate evidence, retry on violations, then drop what
     still doesn't ground. Returns (valid items, notes)."""
@@ -260,6 +287,12 @@ def run_map(model: StructuredModel, ctx: MapContext) -> tuple[list[MapItem], lis
             )
         else:
             notes.append(f"{len(invalid)} proposed assessment(s) dropped for unciteable or ungrounded evidence.")
+    valid, downgraded = _boldface_confirmation_guard(valid, ctx)
+    if downgraded:
+        notes.append(
+            f"{downgraded} proposed Boldface gap(s) downgraded to 'likely — verify' "
+            "for lacking a high-confidence finding in real source."
+        )
     if ctx.dropped_examples:
         notes.append(
             f"{ctx.dropped_examples} finding(s) were summarised rather than shown individually to the model "

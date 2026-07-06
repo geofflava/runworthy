@@ -155,6 +155,69 @@ def test_hallucinated_file_line_in_prose_falls_back():
     assert "src/config/prod.py" not in item.fix
 
 
+def test_boldface_gap_on_template_finding_is_downgraded():
+    """VF-1 regression: a Boldface gap resting only on a placeholder in a template
+    file (``.env.example``) must not force NO-GO. Even at high confidence it
+    downgrades to 'likely — verify' and the verdict stays PROVISIONAL — the
+    pipeline refuses to invent the problem. A real (non-template) dep gap is
+    untouched, so genuine findings still land."""
+    findings = [
+        _finding("rw-tmplsecret", "gitleaks", ["AFR-05", "AFR-06"], Severity.INFO, Confidence.LOW,
+                 ".env.example", 1, "generic-api-key placeholder"),
+        _finding("rw-dep1", "osv-scanner", ["AFR-10"], Severity.MEDIUM, Confidence.HIGH,
+                 "requirements.txt", 2, "Vulnerable dependency langchain"),
+    ]
+    report_in = ReadinessReport(
+        findings=findings, target_ref="owner/repo", commit_sha="abc123",
+        generated_at="2026-07-06T00:00:00Z", engine_version="0.1.0",
+        detector_versions={"gitleaks": "8.30.1"},
+        agent_map=AgentMap(frameworks=["LangGraph"], tools=[], entrypoints=["agent.py"]),
+    )
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-05", "status": "gap", "confidence": "high",
+             "evidence": ["rw-tmplsecret"], "rationale": "key in .env.example"},
+            {"afr_control": "AFR-10", "status": "gap", "confidence": "high",
+             "evidence": ["rw-dep1"], "rationale": "vulnerable dependency"},
+        ]},
+        "translate": {"items": [
+            {"index": 0, "plain_explanation": "Worth checking your credential setup.", "fix": "Verify per-agent keys."},
+            {"index": 1, "plain_explanation": "A pinned dependency has an open advisory.", "fix": "Upgrade it."},
+        ]},
+    })
+    report = interpret(report_in, model=model)
+    by_control = {p.afr_control: p for p in report.posture_items}
+    # AFR-05 survives as a caution, not a confirmed gap.
+    assert by_control["AFR-05"].status is PostureStatus.UNKNOWN
+    assert by_control["AFR-05"].confidence is Confidence.MEDIUM
+    # AFR-10 (non-Boldface, real dep finding) stays a confirmed gap.
+    assert by_control["AFR-10"].status is PostureStatus.GAP
+    # No confirmed Boldface gap -> PROVISIONAL, never NO-GO.
+    assert report.verdict is Verdict.PROVISIONAL
+    assert report.band is None
+    assert any("downgraded" in n for n in report.notes)
+
+
+def test_boldface_gap_on_real_source_still_no_go():
+    """The guard must not over-suppress: a high-confidence secret in *real* source
+    (``.env``, not a template) is a genuine Confirmed Boldface gap and must still
+    force NO-GO / Exposed."""
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-05", "status": "gap", "confidence": "high",
+             "evidence": ["rw-secret1"], "rationale": "hardcoded secret in .env"},
+        ]},
+        "translate": {"items": [
+            {"index": 0, "plain_explanation": "A key sits in .env:1.", "fix": "Rotate and scope it."},
+        ]},
+    })
+    report = interpret(_report(), model=model)
+    by_control = {p.afr_control: p for p in report.posture_items}
+    assert by_control["AFR-05"].status is PostureStatus.GAP
+    assert report.verdict is Verdict.NO_GO
+    assert report.band == "Exposed"
+
+
 def test_pass_gap_without_high_confidence_is_rejected():
     """status pass/gap requires high confidence + evidence; a 'medium gap' is not
     a confirmed failure and must be dropped, keeping the verdict honest."""
