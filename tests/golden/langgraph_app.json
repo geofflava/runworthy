@@ -1,0 +1,91 @@
+{
+  "agent_map": {
+    "entrypoints": [
+      "agent.py",
+      "langgraph.json"
+    ],
+    "frameworks": [
+      "LangChain",
+      "LangGraph"
+    ],
+    "mcp_servers": [],
+    "memory_stores": [
+      "agent.py"
+    ],
+    "prompts": [],
+    "skills": [],
+    "tools": [
+      "declared-tools",
+      "network-http",
+      "shell-exec"
+    ]
+  },
+  "findings": [
+    {
+      "afr_controls": [
+        "AFR-08",
+        "AFR-09"
+      ],
+      "also_reported_by": [],
+      "confidence": "medium",
+      "dedup_key": "code::AST4::agent.py::9",
+      "detector": "skillspector",
+      "file": "agent.py",
+      "line": 9,
+      "severity": "medium"
+    },
+    {
+      "afr_controls": [
+        "AFR-08",
+        "AFR-09"
+      ],
+      "also_reported_by": [],
+      "confidence": "medium",
+      "dedup_key": "code::PE3::langgraph.json::1",
+      "detector": "skillspector",
+      "file": "langgraph.json",
+      "line": 1,
+      "severity": "high"
+    },
+    {
+      "afr_controls": [
+        "AFR-10"
+      ],
+      "also_reported_by": [
+        "skillspector"
+      ],
+      "confidence": "high",
+      "dedup_key": "dep::pypi::langchain-core::requirements.txt",
+      "detector": "osv-scanner",
+      "file": "requirements.txt",
+      "line": 2
+    },
+    {
+      "afr_controls": [
+        "AFR-10"
+      ],
+      "also_reported_by": [
+        "skillspector"
+      ],
+      "confidence": "high",
+      "dedup_key": "dep::pypi::langgraph::requirements.txt",
+      "detector": "osv-scanner",
+      "file": "requirements.txt",
+      "line": 1
+    },
+    {
+      "afr_controls": [
+        "AFR-10"
+      ],
+      "also_reported_by": [
+        "skillspector"
+      ],
+      "confidence": "high",
+      "dedup_key": "dep::pypi::requests::requirements.txt",
+      "detector": "osv-scanner",
+      "file": "requirements.txt",
+      "line": 3
+    }
+  ],
+  "verdict": "PROVISIONAL"
+}

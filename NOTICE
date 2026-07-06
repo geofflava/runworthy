@@ -1,0 +1,38 @@
+Runworthy
+Copyright (c) 2026 Geoff "Lava" Lavagnino / Obsidicore LLC
+Licensed under the MIT License (see LICENSE).
+
+This product orchestrates the following third-party open-source scanners as
+external, version-pinned tools resolved on PATH. They are NOT vendored or
+redistributed with Runworthy; each retains its own license. Runworthy normalizes
+their output and adds an interpretation layer above them.
+
+-------------------------------------------------------------------------------
+NVIDIA SkillSpector
+    https://github.com/NVIDIA/SkillSpector
+    License: Apache License 2.0
+    Copyright (c) NVIDIA CORPORATION & AFFILIATES.
+    Used as: agent skill / MCP artifact security scanner (contained per the
+    adapter rules in docs/adapters.md). Its install-verdict and risk score are
+    never surfaced by Runworthy.
+
+-------------------------------------------------------------------------------
+gitleaks
+    https://github.com/gitleaks/gitleaks
+    License: MIT License
+    Copyright (c) 2019 Zachary Rice
+    Used as: hardcoded / long-lived secret scanner (run with --redact).
+
+-------------------------------------------------------------------------------
+OSV-Scanner
+    https://github.com/google/osv-scanner
+    License: Apache License 2.0
+    Copyright (c) Google LLC
+    Used as: vulnerable-dependency scanner (queries OSV.dev).
+
+-------------------------------------------------------------------------------
+Deliberately excluded: TruffleHog (AGPL-3.0). Runworthy uses permissive-license
+(Apache-2.0 / MIT) OSS only. Secret scanning is gitleaks (MIT).
+
+The Agent Flight Rules (AFR) framework that Runworthy grades against is licensed
+CC BY 4.0 — https://github.com/geofflava/agent-flight-rules

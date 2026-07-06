@@ -1,0 +1,56 @@
+{
+  "description": "The fingerprinted agent surface. Empty everywhere == no agent detected.",
+  "properties": {
+    "entrypoints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Entrypoints",
+      "type": "array"
+    },
+    "frameworks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Frameworks",
+      "type": "array"
+    },
+    "mcp_servers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Mcp Servers",
+      "type": "array"
+    },
+    "memory_stores": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Memory Stores",
+      "type": "array"
+    },
+    "prompts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Prompts",
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tools",
+      "type": "array"
+    }
+  },
+  "title": "AgentMap",
+  "type": "object"
+}

@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "Confidence": {
+      "description": "Deterministic finding = ``high``; the interpretation layer (Phase 1)\nadds ``likely``/``low`` tiers for inferred absences. Detector adapters emit\nonly these three tiers.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "description": "One normalized detector finding. **Every finding carries file + line +\ndedup_key** \u2014 a finding without a location is dropped before emission\n(invariant 1). ``snippet_redacted`` never contains a secret value\n(invariant 2).",
+  "properties": {
+    "afr_controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Afr Controls",
+      "type": "array"
+    },
+    "also_reported_by": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Also Reported By",
+      "type": "array"
+    },
+    "confidence": {
+      "$ref": "#/$defs/Confidence"
+    },
+    "dedup_key": {
+      "title": "Dedup Key",
+      "type": "string"
+    },
+    "detector": {
+      "title": "Detector",
+      "type": "string"
+    },
+    "detector_version": {
+      "title": "Detector Version",
+      "type": "string"
+    },
+    "file": {
+      "title": "File",
+      "type": "string"
+    },
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "line": {
+      "title": "Line",
+      "type": "integer"
+    },
+    "raw_message": {
+      "title": "Raw Message",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "snippet_redacted": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Snippet Redacted"
+    }
+  },
+  "required": [
+    "finding_id",
+    "detector",
+    "detector_version",
+    "severity",
+    "confidence",
+    "file",
+    "line",
+    "raw_message",
+    "dedup_key"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

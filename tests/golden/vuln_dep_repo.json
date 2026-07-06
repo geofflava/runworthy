@@ -1,0 +1,44 @@
+{
+  "agent_map": {
+    "entrypoints": [
+      "agent.py"
+    ],
+    "frameworks": [
+      "LangGraph"
+    ],
+    "mcp_servers": [],
+    "memory_stores": [],
+    "prompts": [],
+    "skills": [],
+    "tools": []
+  },
+  "findings": [
+    {
+      "afr_controls": [
+        "AFR-10"
+      ],
+      "also_reported_by": [
+        "skillspector"
+      ],
+      "confidence": "high",
+      "dedup_key": "dep::pypi::langgraph::requirements.txt",
+      "detector": "osv-scanner",
+      "file": "requirements.txt",
+      "line": 1
+    },
+    {
+      "afr_controls": [
+        "AFR-10"
+      ],
+      "also_reported_by": [
+        "skillspector"
+      ],
+      "confidence": "high",
+      "dedup_key": "dep::pypi::requests::requirements.txt",
+      "detector": "osv-scanner",
+      "file": "requirements.txt",
+      "line": 2
+    }
+  ],
+  "verdict": "PROVISIONAL"
+}

@@ -1,0 +1,34 @@
+{
+  "description": "An answer to a Boldface question code can't see (Phase 2 overlay).\nEmpty in Phase 0.",
+  "properties": {
+    "afr_control": {
+      "title": "Afr Control",
+      "type": "string"
+    },
+    "answer": {
+      "title": "Answer",
+      "type": "string"
+    },
+    "answer_id": {
+      "title": "Answer Id",
+      "type": "string"
+    },
+    "answered_at": {
+      "title": "Answered At",
+      "type": "string"
+    },
+    "question": {
+      "title": "Question",
+      "type": "string"
+    }
+  },
+  "required": [
+    "answer_id",
+    "afr_control",
+    "question",
+    "answer",
+    "answered_at"
+  ],
+  "title": "OperationalAnswer",
+  "type": "object"
+}

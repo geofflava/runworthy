@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "runworthy"
+description = "Agent operations scanner — grades a repo against the Agent Flight Rules (AFR) with a plain-English GO / NO-GO / PROVISIONAL verdict. Orchestrates open-source scanners (SkillSpector, gitleaks, OSV-Scanner) behind an interpretation layer. Defensive tooling."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "Geoff \"Lava\" Lavagnino", email = "geoff@obsidicore.com" }]
+keywords = [
+    "ai-agents",
+    "security",
+    "agent-security",
+    "llm",
+    "static-analysis",
+    "supply-chain",
+    "devsecops",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["pydantic>=2.10"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "jsonschema>=4.20", "build>=1.2", "twine>=5.0", "ruff>=0.6"]
+
+[project.scripts]
+runworthy = "runworthy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/geofflava/runworthy"
+Repository = "https://github.com/geofflava/runworthy"
+Framework = "https://github.com/geofflava/agent-flight-rules"
+
+[tool.hatch.version]
+path = "src/runworthy/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/runworthy"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/runworthy",
+    "schemas",
+    "docs/adapters.md",
+    "NOTICE",
+    "LICENSE",
+    "README.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "tools: tests that require the pinned external detector binaries on PATH",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+# Test fixtures are intentionally realistic (unused imports, one-line imports) so
+# the fingerprinter/detectors have something true-to-life to match — don't lint them.
+extend-exclude = ["tests/fixtures"]

@@ -1,0 +1,51 @@
+{
+  "$defs": {
+    "PostureStatus": {
+      "enum": [
+        "pass",
+        "gap",
+        "unknown"
+      ],
+      "title": "PostureStatus",
+      "type": "string"
+    }
+  },
+  "description": "An interpreted control assessment (Phase 1). Empty in Phase 0 \u2014 no\ncontrol can be confirmed without the interpretation layer / overlay.",
+  "properties": {
+    "afr_control": {
+      "title": "Afr Control",
+      "type": "string"
+    },
+    "boldface": {
+      "title": "Boldface",
+      "type": "boolean"
+    },
+    "evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "fix": {
+      "title": "Fix",
+      "type": "string"
+    },
+    "plain_explanation": {
+      "title": "Plain Explanation",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/PostureStatus"
+    }
+  },
+  "required": [
+    "afr_control",
+    "status",
+    "boldface",
+    "plain_explanation",
+    "fix"
+  ],
+  "title": "PostureItem",
+  "type": "object"
+}

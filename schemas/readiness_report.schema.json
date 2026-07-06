@@ -1,0 +1,354 @@
+{
+  "$defs": {
+    "AgentMap": {
+      "description": "The fingerprinted agent surface. Empty everywhere == no agent detected.",
+      "properties": {
+        "entrypoints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Entrypoints",
+          "type": "array"
+        },
+        "frameworks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Frameworks",
+          "type": "array"
+        },
+        "mcp_servers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mcp Servers",
+          "type": "array"
+        },
+        "memory_stores": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Memory Stores",
+          "type": "array"
+        },
+        "prompts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prompts",
+          "type": "array"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skills",
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "title": "AgentMap",
+      "type": "object"
+    },
+    "Confidence": {
+      "description": "Deterministic finding = ``high``; the interpretation layer (Phase 1)\nadds ``likely``/``low`` tiers for inferred absences. Detector adapters emit\nonly these three tiers.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "Finding": {
+      "description": "One normalized detector finding. **Every finding carries file + line +\ndedup_key** \u2014 a finding without a location is dropped before emission\n(invariant 1). ``snippet_redacted`` never contains a secret value\n(invariant 2).",
+      "properties": {
+        "afr_controls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Afr Controls",
+          "type": "array"
+        },
+        "also_reported_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Also Reported By",
+          "type": "array"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "dedup_key": {
+          "title": "Dedup Key",
+          "type": "string"
+        },
+        "detector": {
+          "title": "Detector",
+          "type": "string"
+        },
+        "detector_version": {
+          "title": "Detector Version",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "line": {
+          "title": "Line",
+          "type": "integer"
+        },
+        "raw_message": {
+          "title": "Raw Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "snippet_redacted": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snippet Redacted"
+        }
+      },
+      "required": [
+        "finding_id",
+        "detector",
+        "detector_version",
+        "severity",
+        "confidence",
+        "file",
+        "line",
+        "raw_message",
+        "dedup_key"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "OperationalAnswer": {
+      "description": "An answer to a Boldface question code can't see (Phase 2 overlay).\nEmpty in Phase 0.",
+      "properties": {
+        "afr_control": {
+          "title": "Afr Control",
+          "type": "string"
+        },
+        "answer": {
+          "title": "Answer",
+          "type": "string"
+        },
+        "answer_id": {
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "answered_at": {
+          "title": "Answered At",
+          "type": "string"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "answer_id",
+        "afr_control",
+        "question",
+        "answer",
+        "answered_at"
+      ],
+      "title": "OperationalAnswer",
+      "type": "object"
+    },
+    "PostureItem": {
+      "description": "An interpreted control assessment (Phase 1). Empty in Phase 0 \u2014 no\ncontrol can be confirmed without the interpretation layer / overlay.",
+      "properties": {
+        "afr_control": {
+          "title": "Afr Control",
+          "type": "string"
+        },
+        "boldface": {
+          "title": "Boldface",
+          "type": "boolean"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fix": {
+          "title": "Fix",
+          "type": "string"
+        },
+        "plain_explanation": {
+          "title": "Plain Explanation",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PostureStatus"
+        }
+      },
+      "required": [
+        "afr_control",
+        "status",
+        "boldface",
+        "plain_explanation",
+        "fix"
+      ],
+      "title": "PostureItem",
+      "type": "object"
+    },
+    "PostureStatus": {
+      "enum": [
+        "pass",
+        "gap",
+        "unknown"
+      ],
+      "title": "PostureStatus",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Verdict": {
+      "enum": [
+        "GO",
+        "NO_GO",
+        "PROVISIONAL"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "description": "The single, self-contained source of truth. Embeds the findings it cites.\n\nPhase 0 always emits ``verdict = PROVISIONAL`` with ``posture_items = []``:\nno Boldface control can be *confirmed* without the interpretation layer, so\nthe honest verdict is provisional (spec \u00a74 \"Verdict semantics under partial\nobservability\").",
+  "properties": {
+    "agent_map": {
+      "$ref": "#/$defs/AgentMap"
+    },
+    "assessed_controls": {
+      "default": 0,
+      "title": "Assessed Controls",
+      "type": "integer"
+    },
+    "band": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Band"
+    },
+    "commit_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Commit Sha"
+    },
+    "detector_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Detector Versions",
+      "type": "object"
+    },
+    "engine_version": {
+      "title": "Engine Version",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "operational_answers": {
+      "items": {
+        "$ref": "#/$defs/OperationalAnswer"
+      },
+      "title": "Operational Answers",
+      "type": "array"
+    },
+    "posture_items": {
+      "items": {
+        "$ref": "#/$defs/PostureItem"
+      },
+      "title": "Posture Items",
+      "type": "array"
+    },
+    "score": {
+      "default": 0,
+      "title": "Score",
+      "type": "integer"
+    },
+    "target_ref": {
+      "title": "Target Ref",
+      "type": "string"
+    },
+    "total_controls": {
+      "default": 29,
+      "title": "Total Controls",
+      "type": "integer"
+    },
+    "verdict": {
+      "$ref": "#/$defs/Verdict",
+      "default": "PROVISIONAL"
+    }
+  },
+  "required": [
+    "target_ref",
+    "generated_at",
+    "engine_version"
+  ],
+  "title": "ReadinessReport",
+  "type": "object"
+}

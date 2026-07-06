@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "SourceType": {
+      "enum": [
+        "local",
+        "git"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    }
+  },
+  "description": "``{ source_type, ref, commit_sha, file_tree, languages }`` \u2014 provenance\nstarts here: the resolved commit SHA is captured at intake.",
+  "properties": {
+    "commit_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Commit Sha"
+    },
+    "file_tree": {
+      "items": {
+        "type": "string"
+      },
+      "title": "File Tree",
+      "type": "array"
+    },
+    "languages": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Languages",
+      "type": "object"
+    },
+    "ref": {
+      "title": "Ref",
+      "type": "string"
+    },
+    "source_type": {
+      "$ref": "#/$defs/SourceType"
+    }
+  },
+  "required": [
+    "source_type",
+    "ref"
+  ],
+  "title": "ScanTarget",
+  "type": "object"
+}
