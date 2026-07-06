@@ -65,7 +65,9 @@ def rel_posix(path_str: str, root: Path) -> str:
     would eat the leading dot of a dotfile (``.env.example`` -> ``env.example``)
     and break file:line spot-verifiability.
     """
-    p = Path(path_str)
+    # Detectors may report either separator; normalize to POSIX before any
+    # path logic so results are identical on Windows and Linux (CI / Cloud Run).
+    p = Path(path_str.replace("\\", "/"))
     try:
         if p.is_absolute():
             p = p.resolve().relative_to(root.resolve())
