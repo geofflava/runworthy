@@ -1,0 +1,27 @@
+name: Publish to PyPI
+
+# Trusted Publishing (OIDC) — no API token stored anywhere.
+# Requires a matching publisher configured at pypi.org for:
+#   owner=geofflava, repo=runworthy, workflow=publish.yml, project=runworthy
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  pypi-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # required for OIDC trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Publish to PyPI (Trusted Publishing / OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
