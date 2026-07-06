@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -97,11 +98,17 @@ class TokenBudget:
 
 def openrouter_slug(model_id: str) -> str:
     """Map an internal/Anthropic model id to an OpenRouter model slug. OpenRouter
-    namespaces Anthropic models under ``anthropic/`` (e.g. ``claude-sonnet-5`` ->
-    ``anthropic/claude-sonnet-5``); an id that already contains a '/' is treated as
-    a full slug and passed through. The exact cheapest Claude tier that passes the
-    eval labels is pinned at recording time via ``RW_MODEL``."""
-    return model_id if "/" in model_id else f"anthropic/{model_id}"
+    namespaces Anthropic models under ``anthropic/`` and *dots* the minor version
+    where Anthropic dashes it: ``claude-sonnet-4-6`` -> ``anthropic/claude-sonnet-4.6``,
+    ``claude-haiku-4-5`` -> ``anthropic/claude-haiku-4.5``. A bare major such as
+    ``claude-sonnet-5`` has no minor to dot and is namespaced as-is. An id that
+    already contains a '/' is treated as a full slug and passed through untouched.
+    The exact cheapest Claude tier that passes the eval labels is pinned at recording
+    time via ``RW_MODEL`` (a dashed id, normalized here, or a full slug)."""
+    if "/" in model_id:
+        return model_id
+    slug = re.sub(r"(\d)-(\d)", r"\1.\2", model_id)  # dashed minor version -> dotted
+    return f"anthropic/{slug}"
 
 
 def _provider_prefs(base_url: str) -> dict[str, Any] | None:

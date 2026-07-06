@@ -31,7 +31,13 @@ SCHEMA = {
 
 
 def test_openrouter_slug_namespaces_anthropic():
+    # bare major: no minor version to dot
     assert openrouter_slug("claude-sonnet-5") == "anthropic/claude-sonnet-5"
+    # Anthropic dashes the minor version; OpenRouter dots it
+    assert openrouter_slug("claude-haiku-4-5") == "anthropic/claude-haiku-4.5"
+    assert openrouter_slug("claude-sonnet-4-6") == "anthropic/claude-sonnet-4.6"
+    assert openrouter_slug("claude-opus-4-8") == "anthropic/claude-opus-4.8"
+    # already a full slug (or non-anthropic) passes through untouched
     assert openrouter_slug("anthropic/claude-3.5-sonnet") == "anthropic/claude-3.5-sonnet"
     assert openrouter_slug("openai/gpt-4o") == "openai/gpt-4o"
 
