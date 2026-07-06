@@ -18,8 +18,14 @@ Three responsibilities, one small surface:
    - ``live``    — read, else call live and persist (a normal CLI scan; a repeat
      scan of the same SHA is a cache hit).
 
-The ``anthropic`` SDK is imported lazily inside the live path, so importing this
-module — or running ``--no-llm`` — needs neither the package nor a key.
+Two live transports sit behind ``complete``: the default ``anthropic`` (direct
+Messages API, forced tool-use) and ``openai_compat`` (any OpenAI-compatible
+endpoint — OpenRouter by default — using ``response_format: json_schema``). The
+second is the product's BYOK breadth feature: many target users hold an
+OpenRouter key, not an Anthropic one. Direct Anthropic stays the default: one
+fewer intermediary in the privacy story. Either SDK is imported lazily inside its
+live path, so importing this module — or running ``--no-llm`` — needs neither
+package nor a key.
 """
 
 from __future__ import annotations
@@ -32,8 +38,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 Mode = Literal["replay", "record", "live"]
+Transport = Literal["anthropic", "openai_compat"]
 
 DEFAULT_MODEL = os.environ.get("RW_MODEL", "claude-sonnet-5")
+DEFAULT_TRANSPORT: str = os.environ.get("RUNWORTHY_MODEL_TRANSPORT", "anthropic")
+DEFAULT_BASE_URL: str = os.environ.get("RUNWORTHY_MODEL_BASE_URL", "")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 class ModelUnavailable(RuntimeError):
@@ -83,6 +93,37 @@ class TokenBudget:
 
 
 # --- response store (cache / cassette) ---------------------------------------
+
+
+def openrouter_slug(model_id: str) -> str:
+    """Map an internal/Anthropic model id to an OpenRouter model slug. OpenRouter
+    namespaces Anthropic models under ``anthropic/`` (e.g. ``claude-sonnet-5`` ->
+    ``anthropic/claude-sonnet-5``); an id that already contains a '/' is treated as
+    a full slug and passed through. The exact cheapest Claude tier that passes the
+    eval labels is pinned at recording time via ``RW_MODEL``."""
+    return model_id if "/" in model_id else f"anthropic/{model_id}"
+
+
+def _provider_prefs(base_url: str) -> dict[str, Any] | None:
+    """Pin OpenRouter routing to Anthropic upstream, fallbacks off, so recorded
+    cassettes aren't polluted by cross-provider variance (VF-2 §3). Only OpenRouter
+    reads these; other OpenAI-compatible hosts get nothing extra."""
+    if "openrouter.ai" in base_url:
+        return {"order": ["Anthropic"], "allow_fallbacks": False, "require_parameters": True}
+    return None
+
+
+def _parse_json_content(content: str) -> dict[str, Any]:
+    """Parse the JSON object an ``openai_compat`` model returns as message content.
+    The validate-reject-retry loop upstream is still the real guarantee — this only
+    turns the transport's string into a dict."""
+    try:
+        obj = json.loads(content)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ModelUnavailable("openai_compat model did not return valid JSON content") from exc
+    if not isinstance(obj, dict):
+        raise ModelUnavailable("openai_compat model returned non-object JSON")
+    return obj
 
 
 def call_key(node: str, system: str, user: str, schema: dict[str, Any]) -> str:
@@ -136,7 +177,9 @@ class StructuredModel:
     namespace: str = "nosha::0"
     budget: TokenBudget = field(default_factory=lambda: TokenBudget(max_tokens=None))
     model_id: str = DEFAULT_MODEL
-    api_key: str | None = None  # falls back to ANTHROPIC_API_KEY at call time
+    api_key: str | None = None  # falls back to a transport-specific env key at call time
+    transport: str = DEFAULT_TRANSPORT  # "anthropic" | "openai_compat"
+    base_url: str = DEFAULT_BASE_URL  # openai_compat only; defaults to OpenRouter
     max_tokens: int = 1536
     temperature: float = 0.0
 
@@ -162,8 +205,13 @@ class StructuredModel:
             self.store.put(self.namespace, key, node, response)
         return response
 
-    # -- live provider (Anthropic) --
+    # -- live providers --
     def _call_live(self, *, system: str, user: str, schema: dict[str, Any]) -> tuple[dict[str, Any], tuple[int, int]]:
+        if self.transport == "openai_compat":
+            return self._call_openai_compat(system=system, user=user, schema=schema)
+        return self._call_anthropic(system=system, user=user, schema=schema)
+
+    def _call_anthropic(self, *, system: str, user: str, schema: dict[str, Any]) -> tuple[dict[str, Any], tuple[int, int]]:
         key = self.api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not key:
             raise ModelUnavailable(
@@ -197,4 +245,49 @@ class StructuredModel:
         if payload is None:  # pragma: no cover - model contract violation
             raise ModelUnavailable("model did not return the forced tool call")
         usage = (int(msg.usage.input_tokens), int(msg.usage.output_tokens))
+        return payload, usage
+
+    def _call_openai_compat(self, *, system: str, user: str, schema: dict[str, Any]) -> tuple[dict[str, Any], tuple[int, int]]:
+        key = (
+            self.api_key
+            or os.environ.get("OPENROUTER_API_KEY")
+            or os.environ.get("RUNWORTHY_MODEL_API_KEY")
+        )
+        if not key:
+            raise ModelUnavailable(
+                "no OpenRouter key. Set OPENROUTER_API_KEY (or RUNWORTHY_MODEL_API_KEY) to run the "
+                "interpretation layer over an OpenAI-compatible endpoint, or use --no-llm for "
+                "deterministic findings only."
+            )
+        try:
+            import openai  # lazy: only the openai_compat path needs the SDK
+        except ImportError as exc:  # pragma: no cover - environment-dependent
+            raise ModelUnavailable(
+                "the 'openai' package is required for the openai_compat transport: "
+                "pip install 'runworthy[llm]'"
+            ) from exc
+
+        base_url = self.base_url or OPENROUTER_BASE_URL
+        client = openai.OpenAI(api_key=key, base_url=base_url)
+        extra_body: dict[str, Any] = {}
+        prefs = _provider_prefs(base_url)
+        if prefs is not None:
+            extra_body["provider"] = prefs
+        resp = client.chat.completions.create(
+            model=openrouter_slug(self.model_id),
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "emit", "strict": True, "schema": schema},
+            },
+            extra_body=extra_body or None,
+        )
+        content = resp.choices[0].message.content
+        payload = _parse_json_content(content or "")
+        usage = (int(resp.usage.prompt_tokens), int(resp.usage.completion_tokens))
         return payload, usage

@@ -28,9 +28,11 @@ pip install runworthy          # deterministic core + --no-llm
 pip install "runworthy[llm]"   # + the AFR grade (interpretation layer)
 ```
 
-The `[llm]` extra pulls `anthropic` and `langgraph`. A graded scan needs a Claude
-API key on `ANTHROPIC_API_KEY` (bring your own — the CLI is BYOK, and only
-redacted findings ever reach the model). Without the extra or a key, `runworthy
+The `[llm]` extra pulls `anthropic`, `langgraph`, and `openai`. A graded scan
+needs a Claude API key (bring your own — the CLI is BYOK, and only redacted
+findings ever reach the model). By default that key is `ANTHROPIC_API_KEY`; if you
+hold an OpenRouter key instead, point Runworthy at it with one env var (see
+[Bring your own key](#bring-your-own-key)). Without the extra or a key, `runworthy
 scan` still runs and returns the provisional report.
 
 Runworthy orchestrates three external scanners. They are **version-pinned,
@@ -79,6 +81,34 @@ AFR-25) and folds your answers into the grade. `--non-interactive` skips them.
 
 Other flags: `--byok` (fail if no key rather than falling back), `--token-budget N`
 (a per-scan ceiling; a breach fails loud), `--model ID`, `--pretty`.
+
+### Bring your own key
+
+The graded step runs Claude, and you can reach it two ways. Direct Anthropic is
+the default — one fewer intermediary in the privacy story:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+runworthy scan langchain-ai/open_deep_research
+```
+
+If you hold an OpenRouter key (many teams do), switch transport with env vars — no
+flags, no code change:
+
+```bash
+export RUNWORTHY_MODEL_TRANSPORT=openai_compat   # default is 'anthropic'
+export OPENROUTER_API_KEY=sk-or-...
+runworthy scan langchain-ai/open_deep_research
+```
+
+`openai_compat` talks to any OpenAI-compatible endpoint using strict JSON-schema
+structured output. It defaults to OpenRouter (`https://openrouter.ai/api/v1`) and,
+there, pins routing to Anthropic upstream so a graded scan always runs on Claude.
+Point it elsewhere with `RUNWORTHY_MODEL_BASE_URL` and a generic
+`RUNWORTHY_MODEL_API_KEY`; set the model with `--model` (or `RW_MODEL`), which maps
+to the provider's slug (e.g. `claude-sonnet-5` → `anthropic/claude-sonnet-5`).
+Either way, only redacted findings reach the model, and the same token budget and
+validate-reject-retry checks apply.
 
 ### What a scan emits
 
