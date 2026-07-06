@@ -10,13 +10,13 @@ It is **defensive** tooling: it orchestrates published open-source scanners
 interpretation layer on top. It does **not** build exploits, malware, or attack
 tooling.
 
-> **How it grades.** Phase 0 is the deterministic core: fingerprint the agent
+> How it grades. Phase 0 is the deterministic core: fingerprint the agent
 > surface, run the three contained detectors, and produce a self-contained
-> `ReadinessReport` — every finding evidence-bound to a `file:line`, secrets
-> redacted. Phase 1 adds the AFR *grade*: a LangGraph interpretation layer maps
-> that evidence to controls, translates each into plain English, and computes the
-> GO / NO-GO / PROVISIONAL verdict — every claim traceable to a finding, and
-> "couldn't determine" wherever the code can't say. Use `--no-llm` for the
+> `ReadinessReport` where every finding is evidence-bound to a `file:line` and
+> secrets are redacted. Phase 1 adds the AFR *grade*: a LangGraph interpretation
+> layer maps that evidence to controls, translates each into plain English, and
+> computes the GO / NO-GO / PROVISIONAL verdict. Every claim traces to a finding,
+> and it says "couldn't determine" wherever the code can't. Use `--no-llm` for the
 > deterministic report alone.
 
 ---
@@ -73,9 +73,9 @@ By default `scan` renders a plain-English Markdown report to stdout (`--format
 json` for the self-contained `ReadinessReport`; `-o FILE` to write either, format
 inferred from the extension). A one-line summary goes to stderr.
 
-After the scan, the CLI asks the handful of **Boldface** questions code can't see —
-a named owner (AFR-01), a tested kill-switch (AFR-20), an incident runbook
-(AFR-25) — and folds your answers into the grade. `--non-interactive` skips them.
+After the scan, the CLI asks the handful of Boldface questions code can't see (a
+named owner for AFR-01, a tested kill-switch for AFR-20, an incident runbook for
+AFR-25) and folds your answers into the grade. `--non-interactive` skips them.
 
 Other flags: `--byok` (fail if no key rather than falling back), `--token-budget N`
 (a per-scan ceiling; a breach fails loud), `--model ID`, `--pretty`.
@@ -135,10 +135,9 @@ pytest                                              # grade, interpret, overlay,
 ```
 
 Tests tagged `@pytest.mark.tools` need the pinned detector binaries on `PATH` and
-skip cleanly when a tool is absent. The **eval suite** (`tests/test_evals.py`)
-replays recorded model output against labeled scans — no key needed — and is the
-release gate for the grade; see [`evals/README.md`](evals/README.md) to add a
-labeled repo.
+skip cleanly when a tool is absent. The eval suite (`tests/test_evals.py`) replays
+recorded model output against labeled scans (no key needed) and is the release
+gate for the grade; see [`evals/README.md`](evals/README.md) to add a labeled repo.
 
 ## License
 

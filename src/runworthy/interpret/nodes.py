@@ -8,6 +8,7 @@ suite exercises without booting the graph runtime.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from ..afr import summarize
@@ -92,30 +93,31 @@ def _group_findings(findings: list) -> list[tuple[tuple[str, ...], list]]:
     return sorted(groups.items(), key=sort_key)
 
 
-def _findings_digest(findings: list) -> tuple[str, set[str], dict[str, object], int]:
+def _findings_digest(findings: list) -> tuple[str, int]:
+    """Return (digest text, count-not-shown-to-the-model).
+
+    The digest SAMPLES findings (per-group and total caps) only to bound tokens —
+    it does not bound what's *citeable*. Every finding in the report is real and
+    embedded, so any of their ids is valid evidence (see build_context); a model
+    can't guess a sha1 id it never saw, so the cap costs nothing in grounding."""
     if not findings:
-        return "(no findings)", set(), {}, 0
+        return "(no findings)", 0
     lines: list[str] = []
-    citeable: set[str] = set()
-    by_id: dict[str, object] = {}
     shown = 0
     for tag, group in _group_findings(findings):
         header = ", ".join(tag)
         lines.append(f"[{header}] {len(group)} finding(s):")
-        take = min(EXAMPLES_PER_GROUP, MAX_TOTAL_EXAMPLES - shown)
-        for f in group[:max(take, 0)]:
+        take = max(min(EXAMPLES_PER_GROUP, MAX_TOTAL_EXAMPLES - shown), 0)
+        for f in group[:take]:
             msg = mask_secrets((f.raw_message or "").replace("\n", " "))[:_MSG_CLIP]
             lines.append(f"  {f.finding_id} · {f.file}:{f.line} · {f.detector} · {f.severity} · {msg}")
-            citeable.add(f.finding_id)
-            by_id[f.finding_id] = f
             shown += 1
-        remaining = len(group) - min(len(group), max(take, 0))
+        remaining = len(group) - min(len(group), take)
         if remaining > 0:
             lines.append(f"  (+{remaining} more of the same kind, all in the report)")
         if shown >= MAX_TOTAL_EXAMPLES:
             break
-    dropped = len(findings) - len(citeable)
-    return "\n".join(lines), citeable, by_id, dropped
+    return "\n".join(lines), len(findings) - shown
 
 
 def _answers_digest(answers: list[OperationalAnswer]) -> tuple[str, dict[str, OperationalAnswer]]:
@@ -139,17 +141,20 @@ def _controls_text() -> str:
 
 
 def build_context(report: ReadinessReport, answers: list[OperationalAnswer]) -> MapContext:
-    findings_digest, citeable, by_id, dropped = _findings_digest(report.findings)
+    findings_digest, not_shown = _findings_digest(report.findings)
     answers_digest, ans_by_id = _answers_digest(answers)
+    # Every finding in the report is real evidence — citeable and resolvable —
+    # whether or not the token-bounded digest showed it to the model.
+    finding_by_id = {f.finding_id: f for f in report.findings}
     return MapContext(
         surface=_surface_text(report.agent_map),
         findings_digest=findings_digest,
         answers_digest=answers_digest,
         controls_text=_controls_text(),
-        citeable_ids=citeable | set(ans_by_id),
-        finding_by_id=by_id,
+        citeable_ids=set(finding_by_id) | set(ans_by_id),
+        finding_by_id=finding_by_id,
         answer_by_id=ans_by_id,
-        dropped_examples=dropped,
+        dropped_examples=not_shown,
     )
 
 
@@ -169,9 +174,28 @@ def _coerce_item(raw: dict) -> MapItem | None:
         return None
 
 
-def _validate(items: list[MapItem], citeable: set[str]) -> tuple[list[MapItem], list[MapItem], set[str]]:
-    """Split items into (valid, invalid). Invalid = cites an id not in evidence, or
-    asserts pass/gap without high-confidence grounding. Returns the offending ids too."""
+def _evidence_supports_control(it: MapItem, ctx: MapContext) -> bool:
+    """A confirmed pass/gap must cite at least one piece of evidence that is
+    actually *about* this control — a finding the detectors mapped to it, or an
+    operator answer for it. This is what stops a real finding for one control from
+    'grounding' a confirmed gap on an unrelated Boldface control (which would
+    otherwise force a NO_GO the evidence never supported). Inferred items
+    (status=unknown) carry no such requirement — they are cautions, not
+    confirmations, and may cite a related finding as context."""
+    for e in it.evidence:
+        f = ctx.finding_by_id.get(e)
+        if f is not None and it.afr_control in f.afr_controls:
+            return True
+        a = ctx.answer_by_id.get(e)
+        if a is not None and a.afr_control == it.afr_control:
+            return True
+    return False
+
+
+def _validate(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], list[MapItem], set[str]]:
+    """Split items into (valid, invalid). Invalid = cites an id not in evidence,
+    or asserts a pass/gap that isn't high-confidence and grounded in evidence
+    *for that control*. Returns the offending ids too."""
     valid: list[MapItem] = []
     invalid: list[MapItem] = []
     bad_ids: set[str] = set()
@@ -179,14 +203,15 @@ def _validate(items: list[MapItem], citeable: set[str]) -> tuple[list[MapItem], 
         if it.afr_control not in AFR_CONTROLS:
             invalid.append(it)
             continue
-        unknown_ids = [e for e in it.evidence if e not in citeable]
+        unknown_ids = [e for e in it.evidence if e not in ctx.citeable_ids]
         if unknown_ids:
             bad_ids.update(unknown_ids)
             invalid.append(it)
             continue
         if it.status in (PostureStatus.PASS, PostureStatus.GAP):
-            # a confirmed pass/gap must be grounded and high-confidence
-            if not it.evidence or it.confidence is not Confidence.HIGH:
+            # a confirmed pass/gap must be grounded, high-confidence, AND cite
+            # evidence that pertains to the control it asserts
+            if not it.evidence or it.confidence is not Confidence.HIGH or not _evidence_supports_control(it, ctx):
                 invalid.append(it)
                 continue
         valid.append(it)
@@ -218,8 +243,8 @@ def run_map(model: StructuredModel, ctx: MapContext) -> tuple[list[MapItem], lis
     valid: list[MapItem] = []
     for attempt in range(MAX_MAP_RETRIES + 1):
         out = model.complete(node="map", system=MAP_SYSTEM, user=user, schema=MAP_SCHEMA)
-        items = [mi for mi in (_coerce_item(r) for r in out.get("items", [])) if mi is not None]
-        v, invalid, bad_ids = _validate(items, ctx.citeable_ids)
+        items = [mi for mi in (_coerce_item(r) for r in (out.get("items") or [])) if mi is not None]
+        v, invalid, bad_ids = _validate(items, ctx)
         valid = _dedupe(v)
         if not invalid:
             break
@@ -279,7 +304,7 @@ def run_translate(model: StructuredModel, items: list[MapItem], ctx: MapContext)
     user = mask_secrets(translate_user_prompt("\n".join(item_lines), _evidence_block(items, ctx)))
     out = model.complete(node="translate", system=TRANSLATE_SYSTEM, user=user, schema=TRANSLATE_SCHEMA)
     result: dict[int, tuple[str, str]] = {}
-    for r in out.get("items", []):
+    for r in out.get("items") or []:
         try:
             idx = int(r["index"])
         except (KeyError, ValueError, TypeError):
@@ -292,11 +317,36 @@ def run_translate(model: StructuredModel, items: list[MapItem], ctx: MapContext)
 # --- synthesize (deterministic) ----------------------------------------------
 
 
-def _fallback_text(it: MapItem) -> tuple[str, str]:
+_PATH_LINE_RE = re.compile(r"\b([\w./\\-]+\.[A-Za-z0-9]+):(\d+)\b")
+
+
+def _prose_grounded(text: str, allowed_files: set[str]) -> bool:
+    """True unless the prose names a ``file:line`` we don't actually have evidence
+    for. The map node's *evidence ids* are validated, but the translated sentence
+    the founder reads is free model text — this stops a hallucinated or transposed
+    path from being surfaced as fact."""
+    for m in _PATH_LINE_RE.finditer(text):
+        if m.group(1).replace("\\", "/") not in allowed_files:
+            return False
+    return True
+
+
+def _grounded_or(candidate: str, fallback: str, allowed_files: set[str]) -> str:
+    candidate = (candidate or "").strip()
+    if candidate and _prose_grounded(candidate, allowed_files):
+        return candidate
+    return fallback
+
+
+def _control_generic(it: MapItem) -> tuple[str, str]:
+    """A safe, control-derived explanation/fix with no file:line to hallucinate."""
     c = CONTROLS[it.afr_control]
     if it.confidence is Confidence.LOW:
         return (f"Couldn't determine {c.title} ({it.afr_control}) from the code.", c.question)
-    return (it.rationale or f"{c.title} ({it.afr_control}).", "Review this control and confirm it is in place.")
+    if it.status is PostureStatus.GAP:
+        return (f"The scan flags {c.title} ({it.afr_control}) as a gap.",
+                "Confirm it and close it; the Agent Flight Rules describe what 'in place' looks like.")
+    return (f"{c.title} ({it.afr_control}).", "Review this control and confirm it is in place.")
 
 
 def assemble(
@@ -306,9 +356,16 @@ def assemble(
     answers: list[OperationalAnswer],
     notes: list[str],
 ) -> ReadinessReport:
+    by_id = {f.finding_id: f for f in report.findings}
     posture: list[PostureItem] = []
     for i, it in enumerate(items):
-        expl, fix = translations.get(i) or _fallback_text(it)
+        allowed = {by_id[e].file for e in it.evidence if e in by_id}
+        gen_expl, gen_fix = _control_generic(it)
+        t = translations.get(i) or ("", "")
+        # explanation: prefer the translation, then the map rationale, then a
+        # generic control line — each accepted only if its file:line claims ground.
+        expl = _grounded_or(t[0], _grounded_or(it.rationale, gen_expl, allowed), allowed)
+        fix = _grounded_or(t[1], gen_fix, allowed)
         posture.append(
             PostureItem(
                 afr_control=it.afr_control,
@@ -325,7 +382,9 @@ def assemble(
     unassessed_boldface = sorted(
         c for c in BOLDFACE if grade.status_by_control.get(c, PostureStatus.UNKNOWN) is PostureStatus.UNKNOWN
     )
-    all_notes = list(report.notes) + notes
+    # Drop the Phase-0 "0 of 29 assessed" boilerplate — it's false once graded; the
+    # interpretation adds its own accurate PROVISIONAL note below when warranted.
+    all_notes = [n for n in report.notes if not n.startswith("PROVISIONAL:")] + notes
     if grade.verdict is Verdict.PROVISIONAL and unassessed_boldface:
         all_notes.append(
             "PROVISIONAL: "

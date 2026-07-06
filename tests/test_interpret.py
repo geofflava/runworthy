@@ -118,6 +118,43 @@ def test_unciteable_evidence_is_dropped_not_asserted():
     assert model.calls.count("map") == 3
 
 
+def test_gap_cited_to_unrelated_finding_is_dropped():
+    """A Boldface gap must cite evidence *about that control*. Citing a real
+    finding that belongs to a different control (here an AFR-10 dep finding used
+    to 'confirm' AFR-01) must be dropped, not turned into a NO_GO."""
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-01", "status": "gap", "confidence": "high",
+             "evidence": ["rw-dep1"], "rationale": "misattributed"},  # rw-dep1 is AFR-10, not AFR-01
+        ]},
+        "translate": {"items": []},
+    })
+    report = interpret(_report(), model=model)
+    assert report.posture_items == []
+    assert report.verdict is Verdict.PROVISIONAL
+    assert report.band is None
+
+
+def test_hallucinated_file_line_in_prose_falls_back():
+    """If the translated sentence names a file:line we have no evidence for, the
+    prose is replaced with a safe control-derived line — the founder never reads a
+    fabricated path as fact."""
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-05", "status": "gap", "confidence": "high",
+             "evidence": ["rw-secret1"], "rationale": "hardcoded secret in .env"},
+        ]},
+        "translate": {"items": [
+            {"index": 0, "plain_explanation": "A hardcoded AWS key sits in src/config/prod.py:12.",
+             "fix": "Rotate it."},  # prod.py:12 is not in the evidence (the secret is in .env)
+        ]},
+    })
+    report = interpret(_report(), model=model)
+    item = report.posture_items[0]
+    assert "src/config/prod.py" not in item.plain_explanation
+    assert "src/config/prod.py" not in item.fix
+
+
 def test_pass_gap_without_high_confidence_is_rejected():
     """status pass/gap requires high confidence + evidence; a 'medium gap' is not
     a confirmed failure and must be dropped, keeping the verdict honest."""
