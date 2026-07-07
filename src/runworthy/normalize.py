@@ -90,14 +90,28 @@ def _matches_pkg(line: str, target: str) -> bool:
 def resolve_manifest_line(root: Path, file: str, package: str) -> int | None:
     """Find the 1-based line where ``package`` is declared in a manifest, so an
     OSV finding (which is package-level, no line) still carries a real
-    file:line. Returns None if not textually locatable."""
+    file:line. Exact declaration keys are tried before the delimited-token
+    fallback: ``@`` and ``/`` count as token delimiters, so ``hono`` would
+    otherwise "match" inside ``"node_modules/@hono/node-server"`` hundreds of
+    lines before the real ``"node_modules/hono"`` entry (runworthy#2), and the
+    rendered evidence link would open on the wrong package. Returns None if not
+    textually locatable."""
     target = norm_pkg(package)
     try:
         text = (root / file).read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return None
-    for i, raw in enumerate(text.splitlines(), start=1):
-        line = raw.lower().replace("_", "-")
+    lines = [raw.lower().replace("_", "-") for raw in text.splitlines()]
+    esc = re.escape(target)
+    exact = (
+        re.compile(rf'"[^"]*node-modules/{esc}"\s*:'),  # npm lockfile entry key
+        re.compile(rf'"{esc}"\s*:'),  # JSON dependency key (package.json etc.)
+    )
+    for pat in exact:
+        for i, line in enumerate(lines, start=1):
+            if pat.search(line):
+                return i
+    for i, line in enumerate(lines, start=1):
         if _matches_pkg(line, target):
             return i
     return None
