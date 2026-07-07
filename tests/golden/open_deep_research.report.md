@@ -26,13 +26,13 @@ commit `408da442a661ea5e40a6163329f82e3f22628949` · scanned 2026-07-06T01:28:12
 _Grounded in a specific finding. Fix these first._
 
 #### AFR-10 — Scan the agent stack
-*Confirmed  ·  medium severity*
+*Confirmed  ·  critical severity*
 
-Several pinned dependencies have known security advisories open against them — for example langchain and pygments. Your agent inherits every one of those.
+This checks whether the software components your agents depend on are scanned for known security holes. The scan found real, currently known vulnerabilities in four dependencies: langgraph (pyproject.toml:12), langchain-community (pyproject.toml:13), langchain-openai (pyproject.toml:14), and requests (pyproject.toml:28).
 
-**Fix:** Run a dependency scan on a schedule and upgrade the flagged packages; treat critical advisories as work to close, not noise.
+**Fix:** Update these four packages to their latest patched versions and re-run the scan to confirm the vulnerabilities are gone. Set up automatic dependency scanning going forward so new issues are caught early.
 
-**Evidence:** [uv.lock:1686](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/uv.lock#L1686) · osv-scanner · [uv.lock:1954](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/uv.lock#L1954) · osv-scanner
+**Evidence:** [pyproject.toml:12](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/pyproject.toml#L12) · skillspector · [pyproject.toml:13](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/pyproject.toml#L13) · skillspector · [pyproject.toml:14](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/pyproject.toml#L14) · skillspector · [pyproject.toml:28](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/pyproject.toml#L28) · skillspector
 
 ## Likely gaps — verify
 
@@ -41,29 +41,54 @@ _Inferred from the code: the risk is there and the control isn't visible. Confir
 #### AFR-08 — Treat all input as untrusted
 *Likely gap — verify  ·  critical severity*
 
-At src/legacy/utils.py:328 a value read from the environment flows straight into an outbound web request. If that value is a credential, this is a path for it to leave your systems.
+This checks whether the system treats external input (like user text or API responses) as potentially unsafe before acting on it. Several code patterns were found that move data from environment variables and credentials into outgoing network requests, for example src/legacy/utils.py:328 and src/legacy/utils.py:944, which are worth a closer look, though they don't prove input handling is unsafe.
 
-**Fix:** Confirm what is being sent, and make sure an agent's privileges come from your configuration, not from data it reads.
+**Fix:** Have someone review the flow from src/legacy/utils.py:305 through line 329 to confirm sensitive data isn't sent out based on untrusted input. Add input validation there if it's missing.
 
-**Evidence:** [src/legacy/utils.py:328](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L328) · skillspector
+**Evidence:** [langgraph.json:7](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/langgraph.json#L7) · skillspector · [src/legacy/utils.py:414](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L414) · skillspector · [src/legacy/utils.py:328](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L328) · skillspector · [src/legacy/utils.py:328](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L328) · skillspector · [src/legacy/utils.py:329](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L329) · skillspector · [src/legacy/utils.py:944](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L944) · skillspector · [src/legacy/utils.py:454](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L454) · skillspector
+#### AFR-09 — Vet before you connect
+*Likely gap — verify  ·  high severity  ·  ★ Boldface*
+
+This checks whether you vet a tool or server before letting an agent connect to it. Findings showing credential access at langgraph.json:7 and src/legacy/utils.py:414 hint that agents connect to external services, but there's no evidence about whether those connections were vetted first.
+
+**Fix:** List the external tools and servers your agents connect to and confirm each was reviewed before being added. Document that review for future connections.
+
+**Evidence:** [langgraph.json:7](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/langgraph.json#L7) · skillspector · [src/legacy/utils.py:414](https://github.com/langchain-ai/open_deep_research/blob/408da442a661ea5e40a6163329f82e3f22628949/src/legacy/utils.py#L414) · skillspector
 
 ## Couldn't determine — here's how to check
 
 _The scan can't see these from code. They hold the verdict at PROVISIONAL until you answer._
 
 - **AFR-01 Agent registry with a named owner ★** — Do you keep a list of every agent you run in production, and does each one have a single named owner?
+- **AFR-02 Blast-radius record** — For each agent, have you written down what it can do, what data it can reach, and how much it can spend?
+- **AFR-03 Decommissioning** — When an agent is no longer needed, do you retire it and revoke its access?
 - **AFR-04 Minimum scope ★** — Does each agent have access only to the tools and data its job needs, and nothing extra 'just in case'?
 - **AFR-05 Per-agent credentials ★** — Does each agent use its own revocable credentials rather than a shared or master key?
-- **AFR-09 Vet before you connect ★** — Before you connect a tool, skill, or MCP server, do you review what it does and pin it to a version?
+- **AFR-06 No standing production secrets** — Do agent tokens for production expire in hours rather than months?
+- **AFR-07 Sandbox by default** — Can a brand-new or untrusted agent reach production data or spend money without a deliberate promotion step?
 - **AFR-11 Consequence classification ★** — Have you labeled each action an agent can take as low, high, or critical consequence?
 - **AFR-12 Approval gate on High ★** — Do high-consequence actions wait for a human to approve them before they run?
+- **AFR-13 Dual control on Critical** — Do the rare, irreversible actions need two people, or a hard limit the agent can't cross alone?
+- **AFR-14 Default-deny on unclassified** — If an action hasn't been classified, is the agent blocked from taking it?
+- **AFR-15 Hard spending limits** — Are spending caps enforced at the tool or payment provider, not just written into the prompt?
 - **AFR-16 Action log ★** — Do you record every agent action (what triggered it, what it did, and the result) in a log you can replay?
 - **AFR-17 Anomaly alerts ★** — Does something alert a human in real time when an agent does something unusual (odd spend, new connector, off-hours)?
+- **AFR-18 Live visibility** — Can someone answer 'what are our agents doing right now?' without grepping raw logs?
+- **AFR-19 Retention** — Do you keep logs long enough to investigate an incident discovered weeks later?
 - **AFR-20 Kill-switch ★** — Do you have a tested way to stop any agent (or all of them at once) right now, and have you tried it recently?
+- **AFR-21 Circuit breakers** — Does an agent automatically pause when it crosses a threshold (spend, error rate), before a human reacts?
+- **AFR-22 Blast-radius limits** — Are there per-agent rate limits and segmentation so one compromised agent can't reach everything?
+- **AFR-23 Memory hygiene** — Can you point to each agent's memory store, expire what it stores, and wipe it on demand?
+- **AFR-24 Rollback plan** — For each high-consequence action, do you know how to undo it?
 - **AFR-25 Incident runbook ★** — Is there a one-page written plan for when an agent goes wrong (who's notified, how to contain, who decides), and can the team find it?
+- **AFR-26 Severity levels** — Have you defined what counts as a Sev1 / Sev2 / Sev3 incident?
+- **AFR-27 Test changes before they ship** — Do prompt, model, and tool changes run against a fixed set of checks (including an injection probe) before deploy?
+- **AFR-28 Blameless post-incident review** — After an incident or near-miss, do you write up what happened and which control gets added or tightened?
+- **AFR-29 Continuous review** — Do you re-run this assessment on a schedule and after every incident?
 
 ## Notes
 
+- 2 proposed assessment(s) had template/example-file evidence stripped; those left with no other evidence were downgraded to 'couldn't determine'.
 - 16 finding(s) were summarised rather than shown individually to the model (all remain in the report).
 - PROVISIONAL: 10 Boldface control(s) not yet assessed — AFR-01, AFR-04, AFR-05, AFR-09, AFR-11, AFR-12, AFR-16, AFR-17, AFR-20, AFR-25. Answer the operational overlay (or run without --non-interactive) to resolve.
 
