@@ -187,8 +187,10 @@ def render_markdown(report: ReadinessReport) -> str:
 
 
 def _couldnt_determine(report: ReadinessReport) -> list[str]:
-    """Low-confidence items plus any Boldface with no assessment at all — each with
-    the plain question to answer. Excludes controls already shown as confirmed
+    """Low-confidence items plus any Boldface with no assessment at all. The
+    Boldface gates each keep their plain question — they hold the verdict — but
+    supporting controls compress to a single line, so ten gates don't drown in a
+    wall of twenty-nine bullets. Excludes controls already shown as confirmed
     gaps, likely gaps, or positives, so nothing is listed twice."""
     addressed: set[str] = set()
     low_controls: set[str] = set()
@@ -200,7 +202,8 @@ def _couldnt_determine(report: ReadinessReport) -> list[str]:
         else:  # low-confidence unknown — belongs here
             low_controls.add(p.afr_control)
 
-    shown: list[str] = []
+    gates: list[str] = []
+    supporting: list[str] = []
     for c in AFR_CONTROLS:
         is_low = c in low_controls
         # a Boldface control with no assessment at all still owes the reader a question
@@ -208,8 +211,21 @@ def _couldnt_determine(report: ReadinessReport) -> list[str]:
         if not (is_low or is_unassessed_boldface):
             continue
         ctl = CONTROLS[c]
-        star = " ★" if ctl.boldface else ""
-        shown.append(f"- **{c} {ctl.title}{star}** — {ctl.question}")
+        if ctl.boldface:
+            gates.append(f"- **{c} {ctl.title} ★** — {ctl.question}")
+        else:
+            supporting.append(f"{c} {ctl.title}")
+
+    shown = gates
+    if supporting:
+        if shown:
+            shown.append("")
+        n = len(supporting)
+        plural = "s" if n != 1 else ""
+        shown.append(
+            f"Plus {n} supporting control{plural} the scan can't read from code — "
+            "the operational overlay walks through them: " + " · ".join(supporting) + "."
+        )
     return shown
 
 

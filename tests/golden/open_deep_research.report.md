@@ -60,31 +60,16 @@ This checks whether you vet a tool or server before letting an agent connect to 
 _The scan can't see these from code. They hold the verdict at PROVISIONAL until you answer._
 
 - **AFR-01 Agent registry with a named owner ★** — Do you keep a list of every agent you run in production, and does each one have a single named owner?
-- **AFR-02 Blast-radius record** — For each agent, have you written down what it can do, what data it can reach, and how much it can spend?
-- **AFR-03 Decommissioning** — When an agent is no longer needed, do you retire it and revoke its access?
 - **AFR-04 Minimum scope ★** — Does each agent have access only to the tools and data its job needs, and nothing extra 'just in case'?
 - **AFR-05 Per-agent credentials ★** — Does each agent use its own revocable credentials rather than a shared or master key?
-- **AFR-06 No standing production secrets** — Do agent tokens for production expire in hours rather than months?
-- **AFR-07 Sandbox by default** — Can a brand-new or untrusted agent reach production data or spend money without a deliberate promotion step?
 - **AFR-11 Consequence classification ★** — Have you labeled each action an agent can take as low, high, or critical consequence?
 - **AFR-12 Approval gate on High ★** — Do high-consequence actions wait for a human to approve them before they run?
-- **AFR-13 Dual control on Critical** — Do the rare, irreversible actions need two people, or a hard limit the agent can't cross alone?
-- **AFR-14 Default-deny on unclassified** — If an action hasn't been classified, is the agent blocked from taking it?
-- **AFR-15 Hard spending limits** — Are spending caps enforced at the tool or payment provider, not just written into the prompt?
 - **AFR-16 Action log ★** — Do you record every agent action (what triggered it, what it did, and the result) in a log you can replay?
 - **AFR-17 Anomaly alerts ★** — Does something alert a human in real time when an agent does something unusual (odd spend, new connector, off-hours)?
-- **AFR-18 Live visibility** — Can someone answer 'what are our agents doing right now?' without grepping raw logs?
-- **AFR-19 Retention** — Do you keep logs long enough to investigate an incident discovered weeks later?
 - **AFR-20 Kill-switch ★** — Do you have a tested way to stop any agent (or all of them at once) right now, and have you tried it recently?
-- **AFR-21 Circuit breakers** — Does an agent automatically pause when it crosses a threshold (spend, error rate), before a human reacts?
-- **AFR-22 Blast-radius limits** — Are there per-agent rate limits and segmentation so one compromised agent can't reach everything?
-- **AFR-23 Memory hygiene** — Can you point to each agent's memory store, expire what it stores, and wipe it on demand?
-- **AFR-24 Rollback plan** — For each high-consequence action, do you know how to undo it?
 - **AFR-25 Incident runbook ★** — Is there a one-page written plan for when an agent goes wrong (who's notified, how to contain, who decides), and can the team find it?
-- **AFR-26 Severity levels** — Have you defined what counts as a Sev1 / Sev2 / Sev3 incident?
-- **AFR-27 Test changes before they ship** — Do prompt, model, and tool changes run against a fixed set of checks (including an injection probe) before deploy?
-- **AFR-28 Blameless post-incident review** — After an incident or near-miss, do you write up what happened and which control gets added or tightened?
-- **AFR-29 Continuous review** — Do you re-run this assessment on a schedule and after every incident?
+
+Plus 17 supporting controls the scan can't read from code — the operational overlay walks through them: AFR-02 Blast-radius record · AFR-03 Decommissioning · AFR-06 No standing production secrets · AFR-07 Sandbox by default · AFR-13 Dual control on Critical · AFR-14 Default-deny on unclassified · AFR-15 Hard spending limits · AFR-18 Live visibility · AFR-19 Retention · AFR-21 Circuit breakers · AFR-22 Blast-radius limits · AFR-23 Memory hygiene · AFR-24 Rollback plan · AFR-26 Severity levels · AFR-27 Test changes before they ship · AFR-28 Blameless post-incident review · AFR-29 Continuous review.
 
 ## Notes
 
