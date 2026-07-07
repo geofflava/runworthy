@@ -168,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("-o", "--output", help="write the report to this file (format inferred from extension)")
     p_scan.add_argument("--format", choices=["md", "json"], help="output format (default: md, or json for a .json -o)")
     p_scan.add_argument("--pretty", action="store_true", help="pretty-print JSON output")
-    p_scan.add_argument("--no-llm", action="store_true", help="deterministic findings only — no model, fully offline")
+    p_scan.add_argument("--no-llm", action="store_true", help="deterministic findings only — no model, no key (network: clone + the detectors' OSV.dev lookups)")
     p_scan.add_argument("--non-interactive", action="store_true", help="never prompt (skips the operational overlay)")
     p_scan.add_argument("--byok", action="store_true", help="require your own ANTHROPIC_API_KEY; error if it's missing")
     p_scan.add_argument("--model", help="override the model id (default: RW_MODEL or claude-sonnet-5)")

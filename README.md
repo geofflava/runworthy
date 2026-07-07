@@ -64,7 +64,7 @@ runworthy scan https://github.com/langchain-ai/open_deep_research
 # owner/repo shorthand; write the machine-readable report
 runworthy scan langchain-ai/open_deep_research --format json -o report.json
 
-# deterministic findings only — no model, no key, fully offline
+# deterministic findings only — no model, no key (network: clone + OSV.dev lookups)
 runworthy scan ./path/to/repo --no-llm
 
 # don't prompt (skip the operational overlay; stays PROVISIONAL)
