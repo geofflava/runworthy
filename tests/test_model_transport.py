@@ -111,6 +111,7 @@ def test_openai_compat_builds_request_and_maps_usage(monkeypatch):
 
     req = create.captured
     assert req["model"] == "anthropic/claude-sonnet-5"
+    assert req["max_tokens"] == 8192  # headroom so the verbose translate node can't truncate into invalid JSON
     assert req["response_format"]["type"] == "json_schema"
     assert req["response_format"]["json_schema"]["strict"] is True
     assert req["response_format"]["json_schema"]["schema"] == SCHEMA

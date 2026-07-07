@@ -193,7 +193,9 @@ class StructuredModel:
     api_key: str | None = None  # falls back to a transport-specific env key at call time
     transport: str = DEFAULT_TRANSPORT  # "anthropic" | "openai_compat"
     base_url: str = DEFAULT_BASE_URL  # openai_compat only; defaults to OpenRouter
-    max_tokens: int = 3072  # a full 29-control map with rationales needs headroom
+    max_tokens: int = 8192  # translate's per-item prose is the largest output and
+    #                         truncates into invalid JSON if capped too low; sized to
+    #                         clear it (the 29-control map fits comfortably under this)
     temperature: float = 0.0
 
     def complete(self, *, node: str, system: str, user: str, schema: dict[str, Any]) -> dict[str, Any]:
