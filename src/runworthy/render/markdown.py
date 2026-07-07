@@ -174,8 +174,12 @@ def render_markdown(report: ReadinessReport) -> str:
 
     couldnt = _couldnt_determine(report)
     if couldnt:
-        out += ["", "## Couldn't determine — here's how to check", "",
-                "_The scan can't see these from code. They hold the verdict at PROVISIONAL until you answer._", ""]
+        if report.verdict is Verdict.PROVISIONAL:
+            intro = "_The scan can't see these from code. They hold the verdict at PROVISIONAL until you answer._"
+        else:
+            intro = ("_The scan can't see these from code. These supporting controls don't change the "
+                     "Boldface verdict above — verify them when you can._")
+        out += ["", "## Couldn't determine — here's how to check", "", intro, ""]
         out += couldnt
 
     if report.notes:
