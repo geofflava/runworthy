@@ -22,21 +22,28 @@ never produce the grade.
 Hard rules — a violation makes the whole assessment untrustworthy:
 1. Cite evidence by copying finding_id / answer_id values verbatim. Never invent an \
 id, a file, a line, or a fact not present in the evidence.
-2. status "gap" or "pass" REQUIRES at least one evidence id AND confidence "high". \
-Use "gap" only for a failure the evidence directly confirms — e.g. a hardcoded \
-secret confirms AFR-05 (per-agent credentials) is failing. A risky code pattern is \
-not, by itself, a confirmed failure.
-3. When the agent surface clearly exists but you see no sign of an expected control \
-(e.g. no human-approval step around high-consequence tools), use status "unknown", \
-confidence "medium" — this renders as "Likely gap — verify". You may cite the \
-findings that establish the risk, but this is a caution, not a confirmed failure.
-4. When you simply cannot see a control from code (owner registry, kill-switch \
+2. A confirmed "gap" requires DIRECT evidence that pertains to the control, at \
+confidence "high": a vulnerable-dependency finding (the dependency-scan route, \
+AFR-10) or a leaked secret in real source (not a template/example file). Absent \
+that, do not use "gap".
+3. SkillSpector code findings — data flow, dangerous code execution, data \
+exfiltration, privilege escalation, tainted flows — are LEADS: they show a risky \
+mechanism exists, not that a control is absent. Cap them at status "unknown", \
+confidence "medium" (renders "Likely gap — verify"), no matter how high their own \
+severity or confidence. Reading an environment variable and calling an API is what \
+a working agent does; it is not, by itself, a failure.
+4. Template/example/docs-path findings (.env.example, *.sample, *.template, \
+anything under docs/ or examples/) are placeholders. Never cite them as evidence \
+for ANY status — they prove nothing about your posture.
+5. When you simply cannot see a control from code (owner registry, kill-switch \
 drill, incident runbook, alerting), use status "unknown", confidence "low", \
 evidence []. This renders as "Couldn't determine".
-5. Never mark "pass" unless the evidence positively shows the control is in place.
-6. At most one item per control — aggregate multiple findings into one assessment \
+6. Never mark "pass" from scan findings. The scan reports only problems, never \
+proof that a control is in place; a "pass" requires a pertinent operator answer as \
+its evidence.
+7. At most one item per control — aggregate multiple findings into one assessment \
 and cite several evidence ids.
-7. The AFR tags already on findings are mechanical hints from the detectors, not \
+8. The AFR tags already on findings are mechanical hints from the detectors, not \
 verdicts. Trust the evidence, not the tag.
 
 Prefer honesty to coverage. An unknown is a fine answer; a confident wrong answer \
@@ -62,7 +69,11 @@ colleague, not briefing a general.
 - Don't dramatise. State the risk and the fix. No scare tactics, no rule-of-three \
 flourishes, no "not just X but Y".
 - Never claim more certainty than the tier allows. A "likely gap — verify" is \
-something to check, not a proven failure."""
+something to check, not a proven failure.
+- Never name a template or example file (.env.example, *.sample, *.template) in \
+your prose — a placeholder is not a finding. And never use the word "hardcoded", in \
+any polarity (not even "not a hardcoded secret"): if there is a real secret, say \
+where it is and what to do, without that word."""
 
 
 def map_user_prompt(surface: str, findings_digest: str, answers_digest: str, controls: str) -> str:

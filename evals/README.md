@@ -54,7 +54,7 @@ the unchanged labels. If a case fails after recording, fix the prompt or the lab
 
 | Case | Repo | Findings | Expected |
 |---|---|---|---|
-| `open_deep_research` | langchain-ai/open_deep_research @ 408da44 | 33 | NO-GO · Exposed (hardcoded key → AFR-05) |
+| `open_deep_research` | langchain-ai/open_deep_research @ 408da44 | 33 | PROVISIONAL (vuln deps → AFR-10 gap; the `.env.example` placeholder is not a real secret) |
 | `anthropics_skills` | anthropics/skills @ 9d2f1ae | 67 | PROVISIONAL (vuln deps, risky skill code) |
 | `crewai_examples` | crewAIInc/crewAI-examples @ da94a91 | 364 | PROVISIONAL (breadth; 335 vuln deps) |
 | `clean_agent_repo` | synthetic | 0 | PROVISIONAL (no findings → no invented gaps) |

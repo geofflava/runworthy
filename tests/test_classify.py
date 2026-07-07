@@ -8,8 +8,8 @@ repo NO-GO, while making sure a real secret in real source is untouched.
 from __future__ import annotations
 
 from runworthy.adapters.gitleaks_adapter import classify_secret
-from runworthy.classify import is_template_path
-from runworthy.models import Confidence, Severity
+from runworthy.classify import is_direct_evidence, is_template_path
+from runworthy.models import Confidence, Finding, Severity
 
 
 def test_is_template_path_flags_templates_and_docs():
@@ -70,3 +70,36 @@ def test_env_var_secret_is_not_falsely_downgraded():
     item = {"Match": "API_KEY=REDACTED", "Entropy": 4.8}
     conf, _ = classify_secret(item, ".env", "generic-api-key")
     assert conf is Confidence.HIGH
+
+
+# --- evidence class (VF-3): direct vs pattern --------------------------------
+
+
+def _f(detector, controls, conf, file):
+    return Finding(
+        finding_id="rw-x", detector=detector, detector_version="x", afr_controls=controls,
+        severity=Severity.HIGH, confidence=conf, file=file, line=1,
+        raw_message="m", dedup_key="k",
+    )
+
+
+def test_direct_evidence_dependency_route():
+    # OSV database match and SkillSpector SC4 both map solely to AFR-10 -> direct,
+    # keyed on the AFR route so a dedup-merge can't blur the detector field.
+    assert is_direct_evidence(_f("osv-scanner", ["AFR-10"], Confidence.HIGH, "requirements.txt"))
+    assert is_direct_evidence(_f("skillspector", ["AFR-10"], Confidence.HIGH, "requirements.txt"))
+
+
+def test_direct_evidence_real_source_secret():
+    # A gitleaks secret that survived the VF-1 guard (high confidence, real source).
+    assert is_direct_evidence(_f("gitleaks", ["AFR-05", "AFR-06"], Confidence.HIGH, ".env"))
+
+
+def test_pattern_evidence_is_not_direct():
+    # SkillSpector code-route lead (env-read -> outbound call): high confidence in
+    # real source, but a *mechanism*, not a control state -> pattern, not direct.
+    assert not is_direct_evidence(_f("skillspector", ["AFR-08", "AFR-09"], Confidence.HIGH, "src/agent.py"))
+    # Template / low-entropy secret (already capped low/info at the adapter).
+    assert not is_direct_evidence(_f("gitleaks", ["AFR-05", "AFR-06"], Confidence.LOW, ".env.example"))
+    # A high-confidence gitleaks hit in a template path is still not direct.
+    assert not is_direct_evidence(_f("gitleaks", ["AFR-05", "AFR-06"], Confidence.HIGH, ".env.example"))

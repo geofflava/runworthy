@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from ..afr import summarize
 from ..afr_catalog import CONTROLS
-from ..classify import is_template_path
+from ..classify import is_direct_evidence, is_template_path
 from ..models import (
     AFR_CONTROLS,
     BOLDFACE,
@@ -23,6 +23,7 @@ from ..models import (
     PostureItem,
     PostureStatus,
     ReadinessReport,
+    Severity,
     Verdict,
 )
 from ..redact import mask_secrets
@@ -37,6 +38,9 @@ _MSG_CLIP = 140
 
 _ORDER = {PostureStatus.GAP: 2, PostureStatus.PASS: 1, PostureStatus.UNKNOWN: 0}
 _CONF_ORDER = {Confidence.HIGH: 2, Confidence.MEDIUM: 1, Confidence.LOW: 0}
+_SEV_RANK = {
+    Severity.CRITICAL: 4, Severity.HIGH: 3, Severity.MEDIUM: 2, Severity.LOW: 1, Severity.INFO: 0,
+}
 
 
 @dataclass
@@ -234,35 +238,157 @@ def _rank(it: MapItem) -> tuple[int, int, int]:
     return (_ORDER[it.status], _CONF_ORDER[it.confidence], len(it.evidence))
 
 
-def _boldface_confirmation_guard(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
-    """Defense in depth for the highest-stakes call. A *Confirmed* gap on a
-    Boldface control forces NO-GO, so it must rest on a high-confidence finding in
-    real source (not a template/example/docs file) — or an operator's answer.
-    Anything weaker is downgraded to "Likely gap — verify" (unknown/medium): still
-    surfaced, but it can no longer flip the verdict. This is what stops a
-    placeholder in ``.env.example`` from grading a repo NO-GO."""
+def _has_direct_support(it: MapItem, ctx: MapContext) -> bool:
+    """A confirmed gap needs at least one **direct-class** finding that pertains to
+    the control (a vulnerable dependency, or a real-source secret that survived the
+    VF-1 guard), or an operator answer for it. Pattern-class leads — every
+    SkillSpector code finding, and any template/low-entropy secret — may *accompany*
+    a gap but can never confirm it. Requiring pertinence (as ``_validate`` already
+    does) closes the loophole where a gap on one control cites an unrelated direct
+    finding for another."""
+    for e in it.evidence:
+        f = ctx.finding_by_id.get(e)
+        if f is not None and it.afr_control in f.afr_controls and is_direct_evidence(f):
+            return True
+        a = ctx.answer_by_id.get(e)
+        if a is not None and a.afr_control == it.afr_control:
+            return True
+    return False
+
+
+def _template_hygiene(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
+    """Strip citations of template/example-path findings from every item. A
+    placeholder in an example file is not evidence of *any* posture, and a cited
+    template finding renders as an evidence link (``render/markdown.py``) — which is
+    exactly how ``.env.example:1`` leaked back into the odr report. An item left with
+    no evidence becomes ``unknown``/``low`` ("Couldn't determine"). Deterministic
+    hygiene beats hoping the model declines to cite it."""
+    out: list[MapItem] = []
+    changed = 0
+    for it in items:
+        kept = [e for e in it.evidence if not _is_template_evidence(e, ctx)]
+        if kept == it.evidence:
+            out.append(it)
+            continue
+        changed += 1
+        if kept:
+            out.append(MapItem(it.afr_control, it.status, it.confidence, kept, it.rationale))
+        else:
+            out.append(MapItem(it.afr_control, PostureStatus.UNKNOWN, Confidence.LOW, [], it.rationale))
+    return out, changed
+
+
+def _is_template_evidence(eid: str, ctx: MapContext) -> bool:
+    f = ctx.finding_by_id.get(eid)
+    return f is not None and is_template_path(f.file)
+
+
+def _confirmed_gap_guard(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
+    """VF-3's confirmed-gap guard, generalized from Boldface-only to all 29 controls.
+    A ``gap`` on *any* control must rest on direct-class evidence pertaining to it
+    (or an operator answer); a gap resting only on pattern-class leads is downgraded
+    to "Likely gap — verify" (unknown/medium), keeping its evidence and rationale.
+    This closes the crewai TT3 hole: a confidence-high real-source *pattern* finding
+    (env-read → outbound call) passed the old strong-evidence test and NO-GO'd a
+    working agent repo. Reading an env var and calling an API is what every
+    functional agent does — a scanner that fails every working repo has no signal."""
     out: list[MapItem] = []
     downgraded = 0
     for it in items:
-        if it.status is PostureStatus.GAP and it.afr_control in BOLDFACE:
-            strong = any(
-                (f := ctx.finding_by_id.get(e)) is not None
-                and f.confidence is Confidence.HIGH
-                and not is_template_path(f.file)
-                for e in it.evidence
-            )
-            answered = any(e in ctx.answer_by_id for e in it.evidence)
-            if not (strong or answered):
-                out.append(MapItem(it.afr_control, PostureStatus.UNKNOWN, Confidence.MEDIUM, it.evidence, it.rationale))
-                downgraded += 1
-                continue
+        if it.status is PostureStatus.GAP and not _has_direct_support(it, ctx):
+            out.append(MapItem(it.afr_control, PostureStatus.UNKNOWN, Confidence.MEDIUM, it.evidence, it.rationale))
+            downgraded += 1
+            continue
         out.append(it)
     return out, downgraded
 
 
+def _pass_guard(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
+    """A ``pass`` must cite a pertinent operator answer; otherwise it is rewritten to
+    ``unknown``/``low`` ("Couldn't determine"). All three detectors emit only
+    *problems* — code findings can show a control failing, never one in place — so
+    absence of findings must never read as "in place". Presence-of-control evidence
+    exists only in the operational overlay."""
+    out: list[MapItem] = []
+    rewritten = 0
+    for it in items:
+        if it.status is PostureStatus.PASS and not _has_operator_answer(it, ctx):
+            out.append(MapItem(it.afr_control, PostureStatus.UNKNOWN, Confidence.LOW, it.evidence, it.rationale))
+            rewritten += 1
+            continue
+        out.append(it)
+    return out, rewritten
+
+
+def _has_operator_answer(it: MapItem, ctx: MapContext) -> bool:
+    for e in it.evidence:
+        a = ctx.answer_by_id.get(e)
+        if a is not None and a.afr_control == it.afr_control:
+            return True
+    return False
+
+
+def _mechanical_floor(items: list[MapItem], ctx: MapContext) -> tuple[list[MapItem], int]:
+    """Deterministic dependency floor (VF-3 §5), scoped to the OSV route. For each
+    control carried by direct-class OSV findings at severity ≥ medium (in practice
+    AFR-10), the final posture must be at least ``gap``/``high``: a real
+    vulnerable-dependency set can't be silently dropped or softened to a wobble.
+
+    **Non-rewrite:** an existing ``gap``/``high`` item is left exactly as the model
+    wrote it (goldens stay byte-identical); only a missing or weaker (``pass`` /
+    ``unknown``) item is replaced by a mechanical ``gap`` citing the top-3 findings
+    by severity, with a deterministic rationale. Secrets are deliberately **not**
+    floored — a lone gitleaks match must not become an uncontestable NO-GO (that is
+    the VF-1 failure shape); the model plus the overlay keep discretion there."""
+    demand: dict[str, list] = {}
+    for f in ctx.finding_by_id.values():
+        if tuple(f.afr_controls) != ("AFR-10",):
+            continue
+        if not is_direct_evidence(f):
+            continue
+        if _SEV_RANK.get(f.severity, 0) < _SEV_RANK[Severity.MEDIUM]:
+            continue
+        for c in f.afr_controls:
+            demand.setdefault(c, []).append(f)
+    if not demand:
+        return items, 0
+
+    by_control = {it.afr_control: it for it in items}
+    replaced: set[str] = set()
+    mechanical: list[MapItem] = []
+    for cid in sorted(demand):
+        existing = by_control.get(cid)
+        if existing is not None and existing.status is PostureStatus.GAP and existing.confidence is Confidence.HIGH:
+            continue  # non-rewrite: the model already lands the floor
+        if existing is not None:
+            replaced.add(cid)
+        top = sorted(demand[cid], key=lambda f: _SEV_RANK.get(f.severity, 0), reverse=True)[:3]
+        mechanical.append(
+            MapItem(
+                afr_control=cid,
+                status=PostureStatus.GAP,
+                confidence=Confidence.HIGH,
+                evidence=[f.finding_id for f in top],
+                rationale=(
+                    f"Mechanically derived: OSV flags {len(demand[cid])} vulnerable dependency "
+                    f"finding(s) for {cid}; a confirmed dependency gap is floored regardless of "
+                    "the model's assessment."
+                ),
+            )
+        )
+    if not mechanical:
+        return items, 0
+    # deterministic order: surviving model items in emitted order, mechanical items
+    # appended sorted by control id (dict is iterated via sorted(demand)).
+    kept = [it for it in items if it.afr_control not in replaced]
+    return kept + mechanical, len(mechanical)
+
+
 def run_map(model: StructuredModel, ctx: MapContext) -> tuple[list[MapItem], list[str]]:
     """Call the map node, validate evidence, retry on violations, then drop what
-    still doesn't ground. Returns (valid items, notes)."""
+    still doesn't ground. Then apply the VF-3 evidence-class discipline in order —
+    template hygiene → confirmed-gap guard → pass guard → dependency floor — so
+    ``run_translate`` always sees the final items. Returns (valid items, notes)."""
     notes: list[str] = []
     user = mask_secrets(
         map_user_prompt(ctx.surface, ctx.findings_digest, ctx.answers_digest, ctx.controls_text)
@@ -287,11 +413,31 @@ def run_map(model: StructuredModel, ctx: MapContext) -> tuple[list[MapItem], lis
             )
         else:
             notes.append(f"{len(invalid)} proposed assessment(s) dropped for unciteable or ungrounded evidence.")
-    valid, downgraded = _boldface_confirmation_guard(valid, ctx)
+
+    # VF-3 evidence-class discipline, in order (hygiene → gap → pass → floor).
+    valid, stripped = _template_hygiene(valid, ctx)
+    if stripped:
+        notes.append(
+            f"{stripped} proposed assessment(s) had template/example-file evidence stripped; "
+            "those left with no other evidence were downgraded to 'couldn't determine'."
+        )
+    valid, downgraded = _confirmed_gap_guard(valid, ctx)
     if downgraded:
         notes.append(
-            f"{downgraded} proposed Boldface gap(s) downgraded to 'likely — verify' "
-            "for lacking a high-confidence finding in real source."
+            f"{downgraded} proposed gap(s) downgraded to 'likely — verify' for lacking direct "
+            "evidence (a vulnerable dependency or a real-source secret) or an operator answer."
+        )
+    valid, rewritten = _pass_guard(valid, ctx)
+    if rewritten:
+        notes.append(
+            f"{rewritten} proposed 'in place' assessment(s) rewritten to 'couldn't determine' — "
+            "the scan sees only problems, so a pass needs an operator answer."
+        )
+    valid, floored = _mechanical_floor(valid, ctx)
+    if floored:
+        notes.append(
+            f"{floored} dependency control(s) floored to a confirmed gap from OSV evidence "
+            "(mechanically derived)."
         )
     if ctx.dropped_examples:
         notes.append(
