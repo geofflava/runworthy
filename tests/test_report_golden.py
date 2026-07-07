@@ -5,8 +5,8 @@ output. Regenerate after a prompt/label change or a fresh cassette recording:
 
     RW_UPDATE_GOLDEN=1 pytest tests/test_report_golden.py
 
-The report's ``target_ref`` is set to the repo slug so the render exercises the
-GitHub deep-link path (the recorded scan ran from a local clone).
+The report's ``target_ref`` is set to the ``owner/repo`` slug so the render
+exercises that deep-link form too (the fixture itself carries the full URL).
 """
 
 from __future__ import annotations
