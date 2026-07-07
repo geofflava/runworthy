@@ -8,7 +8,7 @@ self-contained ``ReadinessReport``. No LLM in this layer.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .engine import scan
 from .models import Finding, ReadinessReport, ScanTarget
