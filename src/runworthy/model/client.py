@@ -306,6 +306,13 @@ class StructuredModel:
             },
             extra_body=extra_body or None,
         )
+        if not resp.choices:
+            # OpenRouter reports provider/routing errors as a 200 whose parsed body
+            # has no choices; the detail rides an extra "error" field the SDK keeps
+            # in model_extra. Surface it as ModelUnavailable so the CLI degrades to
+            # the provisional report instead of crashing on choices[0].
+            err = getattr(resp, "error", None) or (getattr(resp, "model_extra", None) or {}).get("error")
+            raise ModelUnavailable(f"the endpoint returned no completion: {err or 'no error detail provided'}")
         content = resp.choices[0].message.content
         payload = _parse_json_content(content or "")
         usage = (int(resp.usage.prompt_tokens), int(resp.usage.completion_tokens))

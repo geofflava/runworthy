@@ -72,13 +72,14 @@ def test_openai_compat_without_key_is_unavailable(monkeypatch):
 class _FakeCreate:
     def __init__(self):
         self.captured: dict = {}
-
-    def __call__(self, **kwargs):
-        self.captured = kwargs
-        return SimpleNamespace(
+        self.response = SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content='{"items": []}'))],
             usage=SimpleNamespace(prompt_tokens=11, completion_tokens=4),
         )
+
+    def __call__(self, **kwargs):
+        self.captured = kwargs
+        return self.response
 
 
 def _install_fake_openai(monkeypatch):
@@ -123,6 +124,26 @@ def test_openai_compat_builds_request_and_maps_usage(monkeypatch):
         {"role": "system", "content": "SYS"},
         {"role": "user", "content": "USR"},
     ]
+
+
+def test_openai_compat_no_choices_is_unavailable_not_a_crash(monkeypatch):
+    """OpenRouter reports provider/routing errors as a 200 whose body has no
+    ``choices`` — the SDK parses it and the detail rides an extra ``error`` field.
+    That must surface as ModelUnavailable (the CLI's honest-degradation path),
+    never a TypeError on ``choices[0]``."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    create, _ = _install_fake_openai(monkeypatch)
+    create.response = SimpleNamespace(
+        choices=None,
+        error={"code": 502, "message": "Provider returned error"},
+        usage=None,
+    )
+    m = StructuredModel(
+        mode="live", store=None, namespace="s::v", budget=TokenBudget(None),
+        transport="openai_compat", model_id="claude-sonnet-5",
+    )
+    with pytest.raises(ModelUnavailable, match="no completion"):
+        m.complete(node="map", system="s", user="u", schema=SCHEMA)
 
 
 def test_openai_compat_custom_base_url_omits_provider_pin(monkeypatch):
