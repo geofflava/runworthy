@@ -503,9 +503,13 @@ def _prose_grounded(text: str, allowed_files: set[str]) -> bool:
     """True unless the prose names a ``file:line`` we don't actually have evidence
     for. The map node's *evidence ids* are validated, but the translated sentence
     the founder reads is free model text — this stops a hallucinated or transposed
-    path from being surfaced as fact."""
+    path from being surfaced as fact. A bare basename grounds when it matches a
+    cited file (the model often writes ``browser_tools.py:17`` for a path it was
+    shown in full; rejecting that swaps good founder prose for a worse fallback)."""
+    basenames = {f.rsplit("/", 1)[-1] for f in allowed_files}
     for m in _PATH_LINE_RE.finditer(text):
-        if m.group(1).replace("\\", "/") not in allowed_files:
+        p = m.group(1).replace("\\", "/")
+        if p not in allowed_files and p.rsplit("/", 1)[-1] not in basenames:
             return False
     return True
 
@@ -541,9 +545,11 @@ def assemble(
         allowed = {by_id[e].file for e in it.evidence if e in by_id}
         gen_expl, gen_fix = _control_generic(it)
         t = translations.get(i) or ("", "")
-        # explanation: prefer the translation, then the map rationale, then a
-        # generic control line — each accepted only if its file:line claims ground.
-        expl = _grounded_or(t[0], _grounded_or(it.rationale, gen_expl, allowed), allowed)
+        # explanation: the translation if its file:line claims ground, else the
+        # generic control line. Never the raw map rationale — it is prompt-voice
+        # model text ("capped at unknown/medium per rule 3") that was never written
+        # for a founder to read, and it leaked exactly that into a rendered card.
+        expl = _grounded_or(t[0], gen_expl, allowed)
         fix = _grounded_or(t[1], gen_fix, allowed)
         posture.append(
             PostureItem(

@@ -20,7 +20,10 @@ from __future__ import annotations
 from .models import Confidence
 
 _TEMPLATE_SUFFIXES = (".example", ".sample", ".template", ".dist", ".md")
-_TEMPLATE_DIR_PREFIXES = ("test", "fixture", "example", "sample", "doc")
+_TEMPLATE_DIR_PREFIXES = ("test", "fixture", "example", "sample")
+#: Docs directories match exactly, not by prefix — ``startswith("doc")`` swallowed
+#: ``skills/docx/`` (a Word-format skill's executable code, not documentation).
+_TEMPLATE_DIRS_EXACT = ("doc", "docs", "documentation")
 
 #: The dependency route (spec §3 → AFR-10). We key the direct-evidence test on the
 #: AFR mapping rather than the detector so that OSV matches *and* SkillSpector SC4
@@ -33,7 +36,7 @@ def is_template_path(path: str) -> bool:
     """True for template/example/docs paths where a 'secret' is almost certainly a
     placeholder: ``*.example`` / ``*.sample`` / ``*.template`` / ``*.dist`` /
     ``*.md``, any path containing ``example`` or ``sample``, or a component under a
-    ``test*`` / ``fixture*`` / ``example*`` / ``doc*`` directory."""
+    ``test*`` / ``fixture*`` / ``example*`` / ``doc``/``docs`` directory."""
     p = path.replace("\\", "/").lower()
     base = p.rsplit("/", 1)[-1]
     if base.endswith(_TEMPLATE_SUFFIXES):
@@ -41,7 +44,7 @@ def is_template_path(path: str) -> bool:
     if "example" in p or "sample" in p:
         return True
     dirs = p.split("/")[:-1]
-    return any(d.startswith(_TEMPLATE_DIR_PREFIXES) for d in dirs)
+    return any(d.startswith(_TEMPLATE_DIR_PREFIXES) or d in _TEMPLATE_DIRS_EXACT for d in dirs)
 
 
 def is_direct_evidence(finding) -> bool:
@@ -57,13 +60,18 @@ def is_direct_evidence(finding) -> bool:
     Everything else is **pattern-class**: every SkillSpector code-route lead (Data
     Flow, Dangerous Code Execution, Data Exfiltration, Privilege Escalation, and the
     skill-mode categories) shows a mechanism exists, never that a control is absent.
+
+    A template/example/docs path is never direct — on *either* route. A vulnerable
+    dep manifest under ``examples/`` is a demo's stack, not the running stack, and
+    letting it through would floor a confirmed gap citing the very paths the
+    template-hygiene guard exists to keep out of the report.
+
     ``finding`` is duck-typed — it needs ``.afr_controls``, ``.detector``,
     ``.confidence`` and ``.file`` — so this stays a pure predicate over the contract
-    without importing it (no ``Finding`` change; spec §4)."""
+    without importing it (no ``Finding`` change; spec §4). ``==`` on confidence, not
+    ``is``, so a plain ``"high"`` string still compares equal on the StrEnum."""
+    if is_template_path(finding.file):
+        return False
     if tuple(finding.afr_controls) == _OSV_ROUTE:
         return True
-    return (
-        finding.detector == "gitleaks"
-        and finding.confidence is Confidence.HIGH
-        and not is_template_path(finding.file)
-    )
+    return finding.detector == "gitleaks" and finding.confidence == Confidence.HIGH

@@ -32,6 +32,14 @@ def test_is_template_path_leaves_real_source_alone():
         assert not is_template_path(p), p
 
 
+def test_docs_dirs_match_exactly_not_by_prefix():
+    # "doc"/"docs" are template dirs, but startswith("doc") swallowed skills/docx/ —
+    # a Word-format skill's executable code, not documentation.
+    assert is_template_path("doc/setup.py")
+    assert is_template_path("docs/conf.py")
+    assert not is_template_path("skills/docx/scripts/soffice.py")
+
+
 def test_env_example_placeholder_drops_to_low_info():
     # The exact VF-1 shape: generic rule over-matched across the CRLF in a template
     # of empty assignments. High entropy on the captured bytes must not save it —
@@ -103,3 +111,20 @@ def test_pattern_evidence_is_not_direct():
     assert not is_direct_evidence(_f("gitleaks", ["AFR-05", "AFR-06"], Confidence.LOW, ".env.example"))
     # A high-confidence gitleaks hit in a template path is still not direct.
     assert not is_direct_evidence(_f("gitleaks", ["AFR-05", "AFR-06"], Confidence.HIGH, ".env.example"))
+
+
+def test_template_path_dep_finding_is_not_direct():
+    # A vulnerable dep manifest under examples/ is a demo's stack, not the running
+    # stack — the OSV route must not floor a confirmed gap citing a template path.
+    assert not is_direct_evidence(_f("osv-scanner", ["AFR-10"], Confidence.HIGH, "examples/requirements.txt"))
+    assert not is_direct_evidence(_f("skillspector", ["AFR-10"], Confidence.HIGH, "docs/requirements.txt"))
+
+
+def test_direct_evidence_survives_plain_string_confidence():
+    # The predicate promises duck-typing; a Finding would coerce "high" to the enum,
+    # so use a plain object to pin that == (not `is`) does the comparison.
+    from types import SimpleNamespace
+
+    f = SimpleNamespace(afr_controls=["AFR-05", "AFR-06"], detector="gitleaks",
+                        confidence="high", file=".env")
+    assert is_direct_evidence(f)

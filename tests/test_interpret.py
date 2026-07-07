@@ -12,6 +12,7 @@ from runworthy.models import (
     AgentMap,
     Confidence,
     Finding,
+    OperationalAnswer,
     PostureStatus,
     ReadinessReport,
     Severity,
@@ -353,3 +354,110 @@ def test_floor_ignores_secrets_and_patterns():
     report = interpret(_report_with(findings), model=model)
     assert "AFR-10" not in {p.afr_control for p in report.posture_items}
     assert report.posture_items == []  # nothing floored, nothing invented
+
+
+def test_floor_skips_low_severity_and_template_deps():
+    """The floor's negative side: OSV findings below medium don't floor, and a dep
+    manifest under a template path (a demo's stack, not the running stack) is not
+    direct-class — neither may mint a confirmed AFR-10 gap on its own."""
+    findings = [
+        _finding("rw-dep-low", "osv-scanner", ["AFR-10"], Severity.LOW, Confidence.HIGH,
+                 "requirements.txt", 3, "Low-severity advisory"),
+        _finding("rw-dep-ex", "osv-scanner", ["AFR-10"], Severity.HIGH, Confidence.HIGH,
+                 "examples/requirements.txt", 1, "Vulnerable dependency in a demo manifest"),
+    ]
+    model = FakeModel({"map": {"items": []}, "translate": {"items": []}})
+    report = interpret(_report_with(findings), model=model)
+    assert report.posture_items == []
+
+
+def test_rationale_prompt_speak_never_renders():
+    """The map rationale is prompt-voice model text ('capped at unknown/medium per
+    rule 3') that was never written for a founder. With no usable translation, the
+    explanation must fall to the generic control line — never the raw rationale."""
+    findings = [
+        _finding("rw-code1", "skillspector", ["AFR-08", "AFR-09"], Severity.HIGH, Confidence.HIGH,
+                 "crews/tools/browser_tools.py", 17, "E2 Env Variable Harvesting"),
+    ]
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium",
+             "evidence": ["rw-code1"],
+             "rationale": "code-flow lead only; capped at unknown/medium per rule 3"},
+        ]},
+        "translate": {"items": []},
+    })
+    report = interpret(_report_with(findings), model=model)
+    item = {p.afr_control: p for p in report.posture_items}["AFR-08"]
+    assert "per rule 3" not in item.plain_explanation
+    assert "capped at" not in item.plain_explanation
+    assert "AFR-08" in item.plain_explanation  # the generic control line
+
+
+def test_basename_citation_grounds_translation():
+    """The model often writes bare basenames ('browser_tools.py:17') for paths it
+    was shown in full. A basename matching a cited evidence file grounds — rejecting
+    it swapped good founder prose for the prompt-voice fallback (the crewai AFR-06
+    'per rule 3' leak) and hollowed the AFR-08 fix to a generic."""
+    findings = [
+        _finding("rw-code1", "skillspector", ["AFR-08", "AFR-09"], Severity.HIGH, Confidence.HIGH,
+                 "crews/instagram_post/tools/browser_tools.py", 17, "E2 Env Variable Harvesting"),
+    ]
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-08", "status": "unknown", "confidence": "medium",
+             "evidence": ["rw-code1"], "rationale": "env read feeds an outbound call"},
+        ]},
+        "translate": {"items": [
+            {"index": 0,
+             "plain_explanation": "Secret values are read at browser_tools.py:17 and used in requests.",
+             "fix": "Check browser_tools.py:17 and confirm the value comes from a secrets manager."},
+        ]},
+    })
+    report = interpret(_report_with(findings), model=model)
+    item = {p.afr_control: p for p in report.posture_items}["AFR-08"]
+    assert "browser_tools.py:17" in item.plain_explanation
+    assert "secrets manager" in item.fix
+
+
+def _answer(cid, text):
+    return OperationalAnswer(
+        answer_id=f"op-{cid.lower().replace('-', '')}", afr_control=cid,
+        question="Do you have a tested kill-switch?", answer=text,
+        answered_at="2026-07-06T00:00:00Z",
+    )
+
+
+def test_gap_confirmed_by_operator_answer_survives():
+    """The recourse path: an operator admitting a Boldface control is missing IS
+    direct support — the gap guard must not downgrade it, and it grades NO_GO."""
+    a = _answer("AFR-20", "No — we have no way to stop it quickly.")
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-20", "status": "gap", "confidence": "high",
+             "evidence": [a.answer_id], "rationale": "operator confirms no kill-switch"},
+        ]},
+        "translate": {"items": []},
+    })
+    report = interpret(_report_with([]), model=model, answers=[a])
+    item = {p.afr_control: p for p in report.posture_items}["AFR-20"]
+    assert item.status is PostureStatus.GAP
+    assert item.confidence is Confidence.HIGH
+    assert report.verdict is Verdict.NO_GO
+
+
+def test_pass_with_operator_answer_survives():
+    """The only legitimate source of a pass is the overlay: a pass citing a
+    pertinent operator answer stands."""
+    a = _answer("AFR-20", "Yes — tested the stop path last week.")
+    model = FakeModel({
+        "map": {"items": [
+            {"afr_control": "AFR-20", "status": "pass", "confidence": "high",
+             "evidence": [a.answer_id], "rationale": "operator confirms a tested kill-switch"},
+        ]},
+        "translate": {"items": []},
+    })
+    report = interpret(_report_with([]), model=model, answers=[a])
+    item = {p.afr_control: p for p in report.posture_items}["AFR-20"]
+    assert item.status is PostureStatus.PASS
+    assert item.confidence is Confidence.HIGH
