@@ -10,6 +10,7 @@ import json
 import tempfile
 from pathlib import Path
 
+from ..classify import is_template_path
 from ..models import Confidence, Finding, Severity
 from ..normalize import secret_dedup_key
 from .base import AdapterContext, ToolUnavailable, rel_posix, resolve_exe, run_tool
@@ -19,6 +20,35 @@ AFR_CONTROLS = ["AFR-05", "AFR-06"]
 
 # Rules whose leak is severe enough to rate critical rather than high.
 _CRITICAL_RULES = {"private-key", "aws-access-token", "gcp-service-account", "gcp-api-key"}
+
+# gitleaks entropy below this isn't a real high-entropy secret. gitleaks reports
+# Entropy even under --redact (it's a number, not the value), so we can gate on it
+# without ever handling the raw secret.
+_ENTROPY_MIN = 3.0
+
+
+def _is_low_signal(item: dict, file: str) -> bool:
+    """True when a gitleaks hit is almost certainly a placeholder, not a committed
+    credential: a match in a template/example/docs file (the VF-1 case —
+    ``.env.example`` of empty ``VARNAME=`` assignments, where the generic rule
+    over-matched across a CRLF), or a sub-threshold-entropy match. We deliberately
+    do NOT inspect the redacted Match for a variable-name shape: with --redact a
+    real ``OPENAI_API_KEY=sk-...`` reduces to the same ``OPENAI_API_KEY=REDACTED``,
+    so that test would hide real env-var secrets."""
+    if is_template_path(file):
+        return True
+    ent = item.get("Entropy")
+    return isinstance(ent, (int, float)) and 0 < ent < _ENTROPY_MIN
+
+
+def classify_secret(item: dict, file: str, rule: str) -> tuple[Confidence, Severity]:
+    """Confidence/severity for a gitleaks hit. A low-signal match (template file or
+    low entropy) drops to low/info so it can never render as a Confirmed Boldface
+    gap; a real secret in real source stays high."""
+    if _is_low_signal(item, file):
+        return Confidence.LOW, Severity.INFO
+    base_sev = Severity.CRITICAL if rule in _CRITICAL_RULES else Severity.HIGH
+    return Confidence.HIGH, base_sev
 
 
 def run(ctx: AdapterContext) -> list[Finding]:
@@ -63,7 +93,7 @@ def run(ctx: AdapterContext) -> list[Finding]:
         if not file or line < 1:
             continue
         fingerprint = item.get("Fingerprint") or f"{file}:{rule}:{line}"
-        severity = Severity.CRITICAL if rule in _CRITICAL_RULES else Severity.HIGH
+        confidence, severity = classify_secret(item, file, rule)
         findings.append(
             Finding(
                 finding_id="",  # assigned in normalize.finalize
@@ -71,7 +101,7 @@ def run(ctx: AdapterContext) -> list[Finding]:
                 detector_version=version,
                 afr_controls=list(AFR_CONTROLS),
                 severity=severity,
-                confidence=Confidence.HIGH,  # deterministic regex + entropy match
+                confidence=confidence,  # capped low for placeholders/templates
                 file=file,
                 line=line,
                 snippet_redacted=str(item.get("Match", "REDACTED")),  # already redacted by gitleaks

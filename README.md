@@ -10,19 +10,30 @@ It is **defensive** tooling: it orchestrates published open-source scanners
 interpretation layer on top. It does **not** build exploits, malware, or attack
 tooling.
 
-> **Phase 0** (this release) is the deterministic core: fingerprint the agent
-> surface, run the three contained detectors, and emit a **provisional,
-> self-contained `ReadinessReport`** as JSON — every finding evidence-bound to a
-> `file:line`, secrets redacted, no LLM anywhere. The AFR *grade* (the GO/NO-GO
-> verdict and plain-English translation) arrives in Phase 1.
+> How it grades. Phase 0 is the deterministic core: fingerprint the agent
+> surface, run the three contained detectors, and produce a self-contained
+> `ReadinessReport` where every finding is evidence-bound to a `file:line` and
+> secrets are redacted. Phase 1 adds the AFR *grade*: a LangGraph interpretation
+> layer maps that evidence to controls, translates each into plain English, and
+> computes the GO / NO-GO / PROVISIONAL verdict. Every claim traces to a finding,
+> and it says "couldn't determine" wherever the code can't. Use `--no-llm` for the
+> deterministic report alone.
 
 ---
 
 ## Install
 
 ```bash
-pip install runworthy
+pip install runworthy          # deterministic core + --no-llm
+pip install "runworthy[llm]"   # + the AFR grade (interpretation layer)
 ```
+
+The `[llm]` extra pulls `anthropic`, `langgraph`, and `openai`. A graded scan
+needs a Claude API key (bring your own — the CLI is BYOK, and only redacted
+findings ever reach the model). By default that key is `ANTHROPIC_API_KEY`; if you
+hold an OpenRouter key instead, point Runworthy at it with one env var (see
+[Bring your own key](#bring-your-own-key)). Without the extra or a key, `runworthy
+scan` still runs and returns the provisional report.
 
 Runworthy orchestrates three external scanners. They are **version-pinned,
 resolved on your `PATH`, and never vendored** — install them once and Runworthy
@@ -47,34 +58,72 @@ than scanning with half a toolchain.
 ## Usage
 
 ```bash
-# scan a local checkout
-runworthy scan ./path/to/repo --pretty
-
-# scan a public repo (shallow, read-only clone; code is never executed)
+# scan a public repo and print the AFR report as Markdown (needs a key)
 runworthy scan https://github.com/langchain-ai/open_deep_research
 
-# owner/repo shorthand works too
-runworthy scan langchain-ai/open_deep_research -o report.json
+# owner/repo shorthand; write the machine-readable report
+runworthy scan langchain-ai/open_deep_research --format json -o report.json
 
-# module form
-python -m runworthy scan ./repo
+# deterministic findings only — no model, no key, fully offline
+runworthy scan ./path/to/repo --no-llm
+
+# don't prompt (skip the operational overlay; stays PROVISIONAL)
+runworthy scan ./repo --non-interactive
 ```
 
-`scan` prints a `ReadinessReport` JSON to stdout (or `--output FILE`) and a
-one-line human summary to stderr. The report is **self-contained**: it embeds
-the findings it cites, so any downstream renderer works from the JSON offline.
+By default `scan` renders a plain-English Markdown report to stdout (`--format
+json` for the self-contained `ReadinessReport`; `-o FILE` to write either, format
+inferred from the extension). A one-line summary goes to stderr.
 
-### What Phase 0 emits
+After the scan, the CLI asks the handful of Boldface questions code can't see (a
+named owner for AFR-01, a tested kill-switch for AFR-20, an incident runbook for
+AFR-25) and folds your answers into the grade. `--non-interactive` skips them.
 
-- `verdict`: always `PROVISIONAL` — no Boldface control can be *confirmed*
-  without the Phase 1 interpretation layer and the operational overlay.
-- `findings[]`: normalized, deduplicated, redacted findings, each with
-  `file:line`, the detector(s) that found it, and the mechanically-mapped AFR
-  control(s).
-- `agent_map`: the fingerprinted agent surface (frameworks, entrypoints, tools,
-  prompts, MCP servers, skills, memory stores).
-- Full provenance: `commit_sha`, `engine_version`, `detector_versions`,
-  `generated_at`.
+Other flags: `--byok` (fail if no key rather than falling back), `--token-budget N`
+(a per-scan ceiling; a breach fails loud), `--model ID`, `--pretty`.
+
+### Bring your own key
+
+The graded step runs Claude, and you can reach it two ways. Direct Anthropic is
+the default — one fewer intermediary in the privacy story:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+runworthy scan langchain-ai/open_deep_research
+```
+
+If you hold an OpenRouter key (many teams do), switch transport with env vars — no
+flags, no code change:
+
+```bash
+export RUNWORTHY_MODEL_TRANSPORT=openai_compat   # default is 'anthropic'
+export OPENROUTER_API_KEY=sk-or-...
+runworthy scan langchain-ai/open_deep_research
+```
+
+`openai_compat` talks to any OpenAI-compatible endpoint using strict JSON-schema
+structured output. It defaults to OpenRouter (`https://openrouter.ai/api/v1`) and,
+there, pins routing to Anthropic upstream so a graded scan always runs on Claude.
+Point it elsewhere with `RUNWORTHY_MODEL_BASE_URL` and a generic
+`RUNWORTHY_MODEL_API_KEY`; set the model with `--model` (or `RW_MODEL`), which maps
+to the provider's slug (e.g. `claude-sonnet-5` → `anthropic/claude-sonnet-5`).
+Either way, only redacted findings reach the model, and the same token budget and
+validate-reject-retry checks apply.
+
+### What a scan emits
+
+- `verdict`: `GO` (every Boldface assessed ≥1 with evidence), `NO_GO` (a Boldface
+  control confirmed at 0), or `PROVISIONAL` (a Boldface control not yet assessed —
+  unknown never counts as a failure).
+- `band`: the AFR band (`Exposed` … `Resilient`), or a provisional band with a
+  count of controls assessed.
+- `posture_items[]`: the interpreted assessment per control — status, confidence
+  tier (Confirmed / Likely gap — verify / Couldn't determine), evidence ids,
+  plain explanation, and the fix.
+- `findings[]`: normalized, deduplicated, redacted findings, each with `file:line`
+  and the detector(s) that found it — embedded, so the report renders offline.
+- `agent_map` and full provenance (`commit_sha`, `engine_version`,
+  `detector_versions`, `generated_at`).
 
 On a repo with **no agent surface**, Runworthy exits early with an honest
 "no agent surface detected" rather than inventing findings.
@@ -82,14 +131,17 @@ On a repo with **no agent surface**, Runworthy exits early with an honest
 ## How it works
 
 ```
-scan target ─▶ intake ─▶ fingerprint ─▶ detectors (parallel, adapter-based) ─▶ normalize ─▶ ReadinessReport
-              (clone/     (AgentMap)      gitleaks · OSV-Scanner ·              (dedup,        (provisional JSON)
-               resolve                     SkillSpector — contained)            redact)
-               SHA)
+scan target ─▶ intake ─▶ fingerprint ─▶ detectors ─▶ normalize ─▶ interpret ────────▶ overlay ─▶ ReadinessReport
+              (clone/     (AgentMap)     gitleaks ·   (dedup,      (LangGraph:          (the       (graded, self-
+               resolve                   OSV ·        redact)       map→translate→       Boldface   contained report)
+               SHA)                      SkillSpector)               synthesize)          Q&A)
 ```
 
 Design rule: **deterministic detectors produce evidence; they never produce the
-grade.** Nothing is asserted that isn't traceable to a `file:line`. See
+grade.** The model only reasons over evidence that already exists and must cite
+it; the band and verdict are computed in tested code (`afr.py`), not by the model.
+Nothing is asserted that isn't traceable to a `file:line` or an explicit,
+labeled "couldn't determine." See
 [`docs/adapters.md`](docs/adapters.md) for the adapter containment rules — in
 particular the SkillSpector filter that turns an 86-finding false-positive flood
 into a handful of defensible findings.
@@ -107,13 +159,15 @@ other snippet).
 ```bash
 git clone https://github.com/geofflava/runworthy && cd runworthy
 python -m venv .venv && . .venv/Scripts/activate   # or .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,llm]"
 python -m runworthy.schema_export schemas           # regenerate JSON Schemas
-pytest                                              # golden + invariant + fingerprint suites
+pytest                                              # grade, interpret, overlay, render, eval, golden
 ```
 
-Tests tagged `@pytest.mark.tools` need the pinned detector binaries on `PATH`;
-they skip cleanly when a tool is absent.
+Tests tagged `@pytest.mark.tools` need the pinned detector binaries on `PATH` and
+skip cleanly when a tool is absent. The eval suite (`tests/test_evals.py`) replays
+recorded model output against labeled scans (no key needed) and is the release
+gate for the grade; see [`evals/README.md`](evals/README.md) to add a labeled repo.
 
 ## License
 

@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from runworthy.models import AFR_CONTROLS, TOTAL_CONTROLS, Verdict
+from runworthy.models import AFR_CONTROLS, TOTAL_CONTROLS, Confidence, Verdict
 from runworthy.tools import TOOLS
 
 requires_tools = pytest.mark.skipif(
@@ -27,6 +27,21 @@ def test_verdict_always_provisional(scanned):
     assert r.band is None
     assert r.total_controls == TOTAL_CONTROLS == 29
     assert r.assessed_controls == 0
+
+
+def test_env_template_yields_no_high_confidence_secret(scanned):
+    """VF-1 regression: an all-empty CRLF ``.env.example`` (the exact shape that
+    NO-GO'd open_deep_research) must produce zero high-confidence secret findings,
+    so it can never anchor a Confirmed Boldface gap. Whether gitleaks flags the
+    template at all, nothing on it may be high-confidence."""
+    r = scanned("env_template_repo")
+    secrets = [f for f in r.findings if f.detector == "gitleaks"]
+    assert all(f.confidence is not Confidence.HIGH for f in secrets)
+    for f in secrets:
+        if f.file.endswith(".env.example"):
+            assert f.confidence is Confidence.LOW
+    # And the scan still grades honestly (no invented failure).
+    assert r.verdict is Verdict.PROVISIONAL
 
 
 def test_every_finding_has_location_and_key(scanned):

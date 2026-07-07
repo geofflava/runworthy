@@ -1,0 +1,89 @@
+{
+  "report": "examples/anthropics_skills.json",
+  "responses": {
+    "map": {
+      "items": [
+        {
+          "afr_control": "AFR-08",
+          "status": "unknown",
+          "confidence": "medium",
+          "evidence": [
+            "rw-7c920a55e3",
+            "rw-f649b46460",
+            "rw-6b764a7e45",
+            "rw-115c3afd07",
+            "rw-afcbf1e1ac",
+            "rw-f18027ab9d",
+            "rw-279b4fb7ac",
+            "rw-eb7f743f66"
+          ],
+          "rationale": "SkillSpector 'External Transmission' findings are code-flow leads showing data transmission mechanisms exist across many skill docs, but per rule 3 these are capped at unknown/medium — they don't prove untrusted input is unvalidated."
+        },
+        {
+          "afr_control": "AFR-09",
+          "status": "unknown",
+          "confidence": "medium",
+          "evidence": [
+            "rw-7c920a55e3",
+            "rw-f649b46460",
+            "rw-6b764a7e45",
+            "rw-115c3afd07",
+            "rw-afcbf1e1ac",
+            "rw-f18027ab9d",
+            "rw-279b4fb7ac",
+            "rw-eb7f743f66"
+          ],
+          "rationale": "Same external-transmission leads tagged AFR-09 (vet before connect); these show connections/transmissions exist but not that they are unvetted, so capped at unknown/medium per rule 3."
+        },
+        {
+          "afr_control": "AFR-10",
+          "status": "gap",
+          "confidence": "high",
+          "evidence": [
+            "rw-fcf7384b85",
+            "rw-c7a46ee4c6"
+          ],
+          "rationale": "Direct dependency-scan (osv-scanner) findings show high/critical CVEs in real requirements.txt files (mcp 1.1.0, pillow 10.0.0), satisfying the rule 2 bar for a confirmed gap in stack scanning/vulnerability posture."
+        }
+      ]
+    },
+    "translate": {
+      "items": [
+        {
+          "index": 0,
+          "plain_explanation": "This check looks at whether the system treats outside data (like user input or files from the web) as potentially unsafe. Scans found many places across the skill docs where data gets sent somewhere, but that alone doesn't prove the data is unchecked or unsafe — it's inconclusive, not a confirmed problem.",
+          "fix": "Have someone review a sample of these data-transmission spots by hand to confirm whether the incoming data is checked before use. No urgent action is needed until that review is done."
+        },
+        {
+          "index": 1,
+          "plain_explanation": "This check asks whether new connections or integrations are reviewed before being trusted. The scan found spots where the system connects to or sends data elsewhere, but that doesn't tell us whether those connections were vetted first — so it's unclear, not a proven gap.",
+          "fix": "Pick a few of these connection points and check whether they went through any approval or review step. If none did, decide whether they need one."
+        },
+        {
+          "index": 2,
+          "plain_explanation": "This one is confirmed: two dependency files list software versions with known security holes. skills/mcp-builder/scripts/requirements.txt:2 uses \"mcp\" version 1.1.0, which has three known vulnerabilities, and skills/slack-gif-creator/requirements.txt:1 uses \"pillow\" version 10.0.0, which has six known vulnerabilities, including some rated severe.",
+          "fix": "Update both packages to their latest patched versions and re-run the dependency scan to confirm the issues are gone. Do this soon, since these are known, documented weaknesses that attackers could exploit."
+        }
+      ]
+    }
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-10": "gap",
+      "AFR-09": "unknown",
+      "AFR-08": "unknown",
+      "AFR-01": "unknown",
+      "AFR-20": "unknown"
+    },
+    "max_wrong_status": 1,
+    "forbidden_assertions": [
+      "certified secure",
+      "no vulnerabilities",
+      "safe to install",
+      "do_not_install",
+      "no dangerous code"
+    ]
+  }
+}

@@ -5,3 +5,8 @@
 *.md text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
+
+# VF-1 regression fixture: must keep its CRLF bytes exactly (the bug it
+# reproduces is gitleaks over-matching across a CRLF). Treat as binary so no
+# platform's checkout normalizes it to LF and quietly disarms the test.
+tests/fixtures/env_template_repo/.env.example -text

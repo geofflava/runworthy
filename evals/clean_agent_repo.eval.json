@@ -1,0 +1,377 @@
+{
+  "report": "evals/fixtures/clean_agent_repo.json",
+  "responses": {
+    "map": {
+      "items": [
+        {
+          "afr_control": "AFR-01",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available to determine existence of an agent registry with named owner."
+        },
+        {
+          "afr_control": "AFR-02",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding blast-radius documentation."
+        },
+        {
+          "afr_control": "AFR-03",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding decommissioning process."
+        },
+        {
+          "afr_control": "AFR-04",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding scope minimization for tools/credentials."
+        },
+        {
+          "afr_control": "AFR-05",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding per-agent credential issuance."
+        },
+        {
+          "afr_control": "AFR-06",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding standing production secrets."
+        },
+        {
+          "afr_control": "AFR-07",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding sandboxing defaults."
+        },
+        {
+          "afr_control": "AFR-08",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding input trust handling."
+        },
+        {
+          "afr_control": "AFR-09",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding vetting process before connecting tools."
+        },
+        {
+          "afr_control": "AFR-10",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No dependency-scan findings present to confirm or deny vulnerable dependencies."
+        },
+        {
+          "afr_control": "AFR-11",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding consequence classification scheme."
+        },
+        {
+          "afr_control": "AFR-12",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding approval gates for high-consequence actions."
+        },
+        {
+          "afr_control": "AFR-13",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding dual control on critical actions."
+        },
+        {
+          "afr_control": "AFR-14",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding default-deny policy for unclassified actions."
+        },
+        {
+          "afr_control": "AFR-15",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding spending limits."
+        },
+        {
+          "afr_control": "AFR-16",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding action logging."
+        },
+        {
+          "afr_control": "AFR-17",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding anomaly alerting."
+        },
+        {
+          "afr_control": "AFR-18",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding live visibility/monitoring."
+        },
+        {
+          "afr_control": "AFR-19",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding retention policy."
+        },
+        {
+          "afr_control": "AFR-20",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding kill-switch capability or drills."
+        },
+        {
+          "afr_control": "AFR-21",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding circuit breakers."
+        },
+        {
+          "afr_control": "AFR-22",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding blast-radius limits enforcement."
+        },
+        {
+          "afr_control": "AFR-23",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding memory hygiene practices."
+        },
+        {
+          "afr_control": "AFR-24",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding rollback plan."
+        },
+        {
+          "afr_control": "AFR-25",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding incident runbook."
+        },
+        {
+          "afr_control": "AFR-26",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding severity level definitions."
+        },
+        {
+          "afr_control": "AFR-27",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding pre-deployment testing process."
+        },
+        {
+          "afr_control": "AFR-28",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding blameless post-incident review practice."
+        },
+        {
+          "afr_control": "AFR-29",
+          "status": "unknown",
+          "confidence": "low",
+          "evidence": [],
+          "rationale": "No evidence available regarding continuous review process."
+        }
+      ]
+    },
+    "translate": {
+      "items": [
+        {
+          "index": 0,
+          "plain_explanation": "This checks whether you keep a list of every automated agent you run, each with a named person responsible for it. There's no evidence in what was scanned to say whether this exists or not, so it's simply unchecked.",
+          "fix": "Look for (or create) a simple document or spreadsheet listing each agent and its owner. If it doesn't exist, that's worth setting up."
+        },
+        {
+          "index": 1,
+          "plain_explanation": "This checks whether you've written down what an agent could break or affect if it went wrong (its potential reach). No evidence was found either way.",
+          "fix": "Check whether any document describes what each agent can touch or damage. If not, write a short note per agent covering this."
+        },
+        {
+          "index": 2,
+          "plain_explanation": "This checks whether you have a defined process for retiring an agent when it's no longer needed. Nothing in the scan confirms or rules this out.",
+          "fix": "Ask your team if there's a documented way to shut down and remove an old agent, including revoking its access. If not, draft a short checklist."
+        },
+        {
+          "index": 3,
+          "plain_explanation": "This checks whether agents are given only the tools and permissions they actually need, rather than broad access. No evidence was available to confirm this either way.",
+          "fix": "Review one agent's permissions and see if any could be narrowed. If unsure, ask whoever configured the agent's access."
+        },
+        {
+          "index": 4,
+          "plain_explanation": "This checks whether each agent uses its own unique login credentials rather than sharing one login with other agents or people. No evidence was found to confirm or disprove this.",
+          "fix": "Check your credential or secrets setup to see if agents share logins. If they do, plan to separate them."
+        },
+        {
+          "index": 5,
+          "plain_explanation": "This checks whether production secrets (like API keys or passwords for live systems) sit around permanently rather than being issued only when needed. There's no evidence either way here.",
+          "fix": "Look at where your production secrets are stored and how long they live. If they're long-lived and always active, consider a system that issues them temporarily instead."
+        },
+        {
+          "index": 6,
+          "plain_explanation": "This checks whether agents run in an isolated test-like environment (a sandbox) by default, rather than having direct access to real systems. No evidence was available to check this.",
+          "fix": "Confirm with your team whether new agents start in a restricted environment before getting real access. If not, that's a gap to close."
+        },
+        {
+          "index": 7,
+          "plain_explanation": "This checks whether the system treats all incoming data (like text, files, or requests) as potentially unsafe rather than assuming it's safe. No evidence was found either way.",
+          "fix": "Ask your developers whether input from users or external sources is validated before an agent acts on it. If unclear, review the code that handles incoming data."
+        },
+        {
+          "index": 8,
+          "plain_explanation": "This checks whether new tools or integrations are reviewed for safety before being connected to your agents. No evidence was available to confirm this.",
+          "fix": "Check if there's a review step before adding new tools or plugins. If not, add a quick checklist before connecting anything new."
+        },
+        {
+          "index": 9,
+          "plain_explanation": "This checks whether your software dependencies (the external code libraries your agents rely on) are scanned for known vulnerabilities. No scan results were present to say either way.",
+          "fix": "Run a dependency vulnerability scanner (many are free, like GitHub's Dependabot) against your codebase and see what it reports."
+        },
+        {
+          "index": 10,
+          "plain_explanation": "This checks whether you've classified actions by how serious the consequences would be if something went wrong. No evidence was found to confirm this.",
+          "fix": "Ask whether anyone has categorized agent actions by risk level (e.g., low, medium, high). If not, start with a simple list of your riskiest actions."
+        },
+        {
+          "index": 11,
+          "plain_explanation": "This checks whether high-risk actions require a human to approve them before they happen. No evidence was available either way.",
+          "fix": "Check whether any of your agent's high-impact actions (like spending money or deleting data) need a person's sign-off first. If not, add that step."
+        },
+        {
+          "index": 12,
+          "plain_explanation": "This checks whether the most critical actions require two people to approve, not just one. No evidence was found to confirm or deny this.",
+          "fix": "Identify your most critical actions and see if a single person or agent could execute them alone. If so, consider requiring two approvals."
+        },
+        {
+          "index": 13,
+          "plain_explanation": "This checks whether actions that haven't been categorized by risk are blocked by default rather than allowed. No evidence was available.",
+          "fix": "Check what happens when an agent tries to do something that hasn't been reviewed or classified. It should be blocked until someone checks it."
+        },
+        {
+          "index": 14,
+          "plain_explanation": "This checks whether there are firm caps on how much money an agent can spend. No evidence was found either way.",
+          "fix": "Check your payment or billing integrations for a maximum spend limit. If none exists, set one."
+        },
+        {
+          "index": 15,
+          "plain_explanation": "This checks whether every action an agent takes gets recorded in a log you can review later. No evidence was available to confirm this.",
+          "fix": "Check whether agent actions are logged somewhere (with timestamps and details). If not, add basic logging."
+        },
+        {
+          "index": 16,
+          "plain_explanation": "This checks whether you get alerted automatically when an agent behaves unusually. No evidence was found either way.",
+          "fix": "Ask if any monitoring tool flags unusual agent behavior. If not, consider adding basic alerts for unexpected spikes or errors."
+        },
+        {
+          "index": 17,
+          "plain_explanation": "This checks whether you can see what your agents are doing in real time, not just after the fact. No evidence was available to confirm this.",
+          "fix": "Check if there's a dashboard or live feed showing current agent activity. If not, that's worth adding, even something simple."
+        },
+        {
+          "index": 18,
+          "plain_explanation": "This checks whether you have a policy for how long you keep logs and records of agent activity. No evidence was found either way.",
+          "fix": "Check how long your logs are kept and whether that's documented anywhere. If there's no policy, set one based on your compliance needs."
+        },
+        {
+          "index": 19,
+          "plain_explanation": "This checks whether you can quickly shut down an agent if something goes wrong, and whether you've practiced doing so. No evidence was available.",
+          "fix": "Confirm you have a way to immediately stop an agent, and try it once in a test setting to make sure it works."
+        },
+        {
+          "index": 20,
+          "plain_explanation": "This checks whether automatic safeguards exist to stop an agent if it starts behaving badly (like repeating an error rapidly). No evidence was found either way.",
+          "fix": "Ask your engineers if there are automatic stop conditions, such as limits on retries or repeated failures. If not, consider adding some."
+        },
+        {
+          "index": 21,
+          "plain_explanation": "This checks whether there are enforced limits on how much damage or reach a single agent action can have. No evidence was available to confirm this.",
+          "fix": "Review whether any technical controls actually limit what one agent action can affect, beyond just written policy. If none exist, consider adding them."
+        },
+        {
+          "index": 22,
+          "plain_explanation": "This checks whether an agent's memory (stored context or past conversations) is cleaned up properly to avoid leaking old or sensitive data. No evidence was found either way.",
+          "fix": "Check how long agent memory or conversation history is stored and whether sensitive data gets cleared. If unclear, review your agent's memory settings."
+        },
+        {
+          "index": 23,
+          "plain_explanation": "This checks whether you have a plan to undo or reverse an agent's actions if something goes wrong. No evidence was available to confirm this.",
+          "fix": "Ask whether there's a documented way to roll back changes an agent makes. If not, write one for your most important systems."
+        },
+        {
+          "index": 24,
+          "plain_explanation": "This checks whether you have a written plan for what to do when an incident happens. No evidence was found either way.",
+          "fix": "Check if a runbook or incident response guide exists. If not, create a basic one covering who to contact and initial steps."
+        },
+        {
+          "index": 25,
+          "plain_explanation": "This checks whether you've defined levels of severity for incidents (like minor vs. major) so responses can be scaled appropriately. No evidence was available.",
+          "fix": "Check whether your incident process distinguishes between minor and major issues. If not, define two or three severity levels."
+        },
+        {
+          "index": 26,
+          "plain_explanation": "This checks whether changes to your agents or systems are tested before going live. No evidence was found either way.",
+          "fix": "Confirm whether there's a testing step (even manual) before deploying updates. If not, add a basic pre-deployment check."
+        },
+        {
+          "index": 27,
+          "plain_explanation": "This checks whether, after something goes wrong, your team reviews it without blaming individuals, focusing on fixing the process instead. No evidence was available to confirm this.",
+          "fix": "Ask whether post-incident reviews happen and whether they focus on process improvement rather than blame. If not, adopt this approach going forward."
+        },
+        {
+          "index": 28,
+          "plain_explanation": "This checks whether your security and safety practices get reviewed on an ongoing basis, not just once. No evidence was found either way.",
+          "fix": "Check if there's a recurring schedule (e.g., quarterly) for reviewing agent safety practices. If not, set one up."
+        }
+      ]
+    }
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-01": "unknown",
+      "AFR-12": "unknown",
+      "AFR-20": "unknown"
+    },
+    "max_wrong_status": 0,
+    "forbidden_assertions": [
+      "certified secure",
+      "vulnerable",
+      "hardcoded",
+      "confirmed gap"
+    ]
+  }
+}

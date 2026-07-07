@@ -1,0 +1,112 @@
+{
+  "report": "examples/crewai_examples.json",
+  "responses": {
+    "map": {
+      "items": [
+        {
+          "afr_control": "AFR-08",
+          "status": "unknown",
+          "confidence": "medium",
+          "evidence": [
+            "rw-38f51ff97e",
+            "rw-d8df96368c",
+            "rw-4ddbb42ea6",
+            "rw-e161f37182",
+            "rw-1dc3f25bd6",
+            "rw-2e4f3ff98e",
+            "rw-e57c5a5037",
+            "rw-85320ded75"
+          ],
+          "rationale": "SkillSpector findings show env-variable harvesting and external transmission patterns across multiple tool files; these are code-flow leads, not confirmed absence of input validation, so capped at unknown/medium."
+        },
+        {
+          "afr_control": "AFR-09",
+          "status": "unknown",
+          "confidence": "medium",
+          "evidence": [
+            "rw-38f51ff97e",
+            "rw-d8df96368c",
+            "rw-4ddbb42ea6",
+            "rw-e161f37182",
+            "rw-1dc3f25bd6",
+            "rw-2e4f3ff98e",
+            "rw-e57c5a5037",
+            "rw-85320ded75"
+          ],
+          "rationale": "Same findings tagged AFR-09 show tools reading env vars and calling external services/search/browser APIs; indicates a mechanism to vet, not a confirmed vetting failure, so capped at unknown/medium."
+        },
+        {
+          "afr_control": "AFR-10",
+          "status": "gap",
+          "confidence": "high",
+          "evidence": [
+            "rw-2fa50fcca5",
+            "rw-eeeb1ad7fe",
+            "rw-9e4314e0bc",
+            "rw-efb1dc5297",
+            "rw-fb067bbc37",
+            "rw-962dc4fda4",
+            "rw-58b4ed17af"
+          ],
+          "rationale": "osv-scanner dependency-scan findings confirm multiple vulnerable dependencies (aiohttp, idna, chromadb, litellm, pyjwt, python-dotenv, uv) with CVEs, including critical severity, directly evidencing a failure to keep the stack scanned/patched."
+        },
+        {
+          "afr_control": "AFR-06",
+          "status": "unknown",
+          "confidence": "medium",
+          "evidence": [
+            "rw-38f51ff97e",
+            "rw-d8df96368c",
+            "rw-4ddbb42ea6",
+            "rw-e161f37182",
+            "rw-2e4f3ff98e",
+            "rw-e57c5a5037",
+            "rw-85320ded75"
+          ],
+          "rationale": "Env-variable harvesting findings suggest secrets are read from environment at runtime across many tools, but this is a code-flow lead only, not confirmed evidence of standing production secrets misuse; capped at unknown/medium per rule 3."
+        }
+      ]
+    },
+    "translate": {
+      "items": [
+        {
+          "index": 0,
+          "plain_explanation": "Several tool files read secret values (like API keys) from environment variables at runtime, for example in browser_tools.py:17, search_tools.py:27, and main.py:17. That's a normal way to handle secrets, but the scan only shows that these reads happen — it doesn't show whether the secrets are being misused or exposed. We can't yet say whether standing production secrets are a real problem here.",
+          "fix": "Have someone check where these env variables get their values in production and confirm they're pulled from a proper secrets manager rather than left sitting in config or logs. If that's already the case, this item can be closed as fine."
+        },
+        {
+          "index": 1,
+          "plain_explanation": "The same set of files (e.g. crews/instagram_post/tools/browser_tools.py:17, crews/markdown_validator/src/markdown_validator/main.py:13-14) read environment values and, in one case, send data externally. This suggests these tools might process input without fully checking it first, but the scan only traces the pattern — it doesn't prove missing validation.",
+          "fix": "Ask the team to review these specific files and confirm that any data coming from outside the app is checked before use. Note the finding at main.py:13-14 for anything that sends data out, since that spot deserves a closer look."
+        },
+        {
+          "index": 2,
+          "plain_explanation": "The same tool files call out to external services like search and browser APIs while also reading environment secrets, for example crews/prep-for-a-meeting/tools/ExaSearchTool.py:58. This points to a mechanism that should be reviewed for vetting (checking a service is safe before connecting to it), not proof that vetting is missing.",
+          "fix": "List the external services these tools connect to and confirm each one was reviewed before being added. If there's no record of that review, do a quick check now and document it."
+        },
+        {
+          "index": 3,
+          "plain_explanation": "A dependency scan found several outdated libraries in crews/game-builder-crew/uv.lock with known security vulnerabilities: aiohttp (line 19), idna (line 98), chromadb (line 311), litellm (line 399), pyjwt (line 409), python-dotenv (line 410), and uv (line 416). Some of these have multiple advisories, including high-severity ones, so this is a confirmed gap, not a guess.",
+          "fix": "Update these packages to their latest patched versions, starting with aiohttp, litellm, and pyjwt since they have the most advisories. Re-run the dependency scan afterward to confirm the vulnerabilities are cleared."
+        }
+      ]
+    }
+  },
+  "labels": {
+    "verdict": "PROVISIONAL",
+    "band": null,
+    "expected_status": {
+      "AFR-10": "gap",
+      "AFR-09": "unknown",
+      "AFR-08": "unknown",
+      "AFR-01": "unknown",
+      "AFR-12": "unknown"
+    },
+    "max_wrong_status": 1,
+    "forbidden_assertions": [
+      "certified secure",
+      "no vulnerabilities",
+      "fully compliant"
+    ]
+  }
+}

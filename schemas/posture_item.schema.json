@@ -1,5 +1,15 @@
 {
   "$defs": {
+    "Confidence": {
+      "description": "Deterministic finding = ``high``; the interpretation layer (Phase 1)\nadds ``likely``/``low`` tiers for inferred absences. Detector adapters emit\nonly these three tiers.",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
     "PostureStatus": {
       "enum": [
         "pass",
@@ -10,7 +20,7 @@
       "type": "string"
     }
   },
-  "description": "An interpreted control assessment (Phase 1). Empty in Phase 0 \u2014 no\ncontrol can be confirmed without the interpretation layer / overlay.",
+  "description": "An interpreted control assessment (Phase 1). Empty in Phase 0 \u2014 no\ncontrol can be confirmed without the interpretation layer / overlay.\n\n``confidence`` is the render tier and the reason unknown never becomes a\nsilent gap (spec \u00a74 anti-hallucination):\n- ``high``   \u2014 **Confirmed**: grounded in a deterministic finding or an\n  operator's answer. Only a ``high`` + ``gap`` on a Boldface control forces\n  NO_GO.\n- ``medium`` \u2014 **Likely gap \u2014 verify**: an inferred absence. Rendered as a\n  caution, never counted as a confirmed failure (``status`` stays\n  ``unknown``, so it holds the verdict at PROVISIONAL, not NO_GO).\n- ``low``    \u2014 **Couldn't determine**: no grounding; \"here's how to check.\"",
   "properties": {
     "afr_control": {
       "title": "Afr Control",
@@ -19,6 +29,10 @@
     "boldface": {
       "title": "Boldface",
       "type": "boolean"
+    },
+    "confidence": {
+      "$ref": "#/$defs/Confidence",
+      "default": "high"
     },
     "evidence": {
       "items": {

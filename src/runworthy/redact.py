@@ -38,6 +38,11 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
         ['"]?[A-Za-z0-9/+=_\-]{16,}['"]?
         """
     ),
+    # keyword-less high-entropy blob: a bare long hex run (>=32) — a credential
+    # with no recognisable prefix and no secret-named key would otherwise slip
+    # into model input and be persisted in a cassette (defense-in-depth; short
+    # ids like a 10-char finding id or a git short-SHA are untouched).
+    re.compile(r"\b[0-9a-fA-F]{32,}\b"),
 )
 
 

@@ -34,7 +34,9 @@ jobs:
           skillspector --version
 
       - name: Install runworthy
-        run: pip install -e ".[dev]"
+        # [llm] pulls anthropic + langgraph so the interpretation and eval suites
+        # run here. The eval suite replays recorded cassettes — no API key needed.
+        run: pip install -e ".[dev,llm]"
 
       - name: Verify detector toolchain
         run: runworthy doctor
