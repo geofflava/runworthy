@@ -40,6 +40,15 @@ def test_docs_dirs_match_exactly_not_by_prefix():
     assert not is_template_path("skills/docx/scripts/soffice.py")
 
 
+def test_dunder_test_dirs_are_template():
+    # __tests__/ is the standard JS spelling of tests/ — an injection string in a
+    # repo's own test fixtures is the repo testing its defenses, not a finding to
+    # cite (found live on Research-Cascade's prompt-injection pattern tests).
+    assert is_template_path("servers/cascade-engine/src/__tests__/e2e.test.ts")
+    assert is_template_path("src/trust/__tests__/patterns.test.ts")
+    assert not is_template_path("src/trust/patterns.ts")
+
+
 def test_env_example_placeholder_drops_to_low_info():
     # The exact VF-1 shape: generic rule over-matched across the CRLF in a template
     # of empty assignments. High entropy on the captured bytes must not save it —

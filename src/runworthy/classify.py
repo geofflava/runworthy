@@ -43,7 +43,9 @@ def is_template_path(path: str) -> bool:
         return True
     if "example" in p or "sample" in p:
         return True
-    dirs = p.split("/")[:-1]
+    # Strip underscore decoration before matching: __tests__/ (the standard JS test
+    # dir) is the same concept as tests/, just spelled with dunders.
+    dirs = [d.strip("_") for d in p.split("/")[:-1]]
     return any(d.startswith(_TEMPLATE_DIR_PREFIXES) or d in _TEMPLATE_DIRS_EXACT for d in dirs)
 
 
